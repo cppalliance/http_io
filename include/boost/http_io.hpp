@@ -10,6 +10,9 @@
 #ifndef BOOST_HTTP_IO_HPP
 #define BOOST_HTTP_IO_HPP
 
-//#include <boost/http_io/string_view.hpp>
+#include <boost/http_io/buffer.hpp>
+#include <boost/http_io/error.hpp>
+#include <boost/http_io/read.hpp>
+#include <boost/http_io/write.hpp>
 
 #endif

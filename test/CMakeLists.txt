@@ -7,19 +7,25 @@
 # Official repository: https://github.com/vinniefalco/http_io
 #
 
-
-set(TFILES
-    ./include/main.cpp
-    ./include/test_suite.hpp
+set(EXTRAFILES
+    ../../url/extra/test_main.cpp
+    ../../url/extra/test_suite.hpp
     )
 
 set(PFILES
     CMakeLists.txt
+    #Jamfile
     error.cpp
+    read.cpp
+    sandbox.cpp
+    write.cpp
     )
 
+find_package(OpenSSL REQUIRED)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "include" FILES ${TFILES})
-add_executable(http_io_tests ${PFILES} ${TFILES})
-target_include_directories(http_io_tests PRIVATE . ./include)
-target_link_libraries(http_io_tests PRIVATE Boost::http_io)
+source_group("_extra" FILES ${EXTRAFILES})
+add_executable(boost_http_io_tests ${PFILES} ${EXTRAFILES})
+target_include_directories(boost_http_io_tests PRIVATE . ../../url/extra)
+target_link_libraries(boost_http_io_tests PRIVATE
+    OpenSSL::SSL
+    Boost::http_io)

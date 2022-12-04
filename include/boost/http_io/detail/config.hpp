@@ -11,8 +11,8 @@
 #define BOOST_HTTP_IO_DETAIL_CONFIG_HPP
 
 #include <boost/config.hpp>
-//#include <boost/assert.hpp>
-//#include <boost/throw_exception.hpp>
+
+namespace boost {
 
 #if defined(BOOST_HTTP_IO_DOCS)
 # define BOOST_HTTP_IO_DECL
@@ -38,5 +38,21 @@
 #  include <boost/config/auto_link.hpp>
 # endif
 #endif
+
+/*
+// lift grammar into our namespace
+namespace urls {
+namespace grammar {}
+}
+namespace http_proto {
+namespace grammar = ::boost::urls::grammar;
+} // http_proto
+*/
+
+namespace http_proto {}
+namespace http_io {
+namespace http_proto = ::boost::http_proto;
+} // http_io
+} // boost
 
 #endif
