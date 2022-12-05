@@ -14,6 +14,8 @@
 #include <iostream>
 #include <vector>
 
+//#define LOGGING
+
 namespace asio = boost::asio;
 namespace io = boost::http_io;
 namespace proto = boost::http_proto;
@@ -111,11 +113,74 @@ public:
         proto::response& res,
         proto::serializer& sr) const
     {
+        (void)req;
+        (void)res;
+        (void)sr;
     }
 
 private:
 };
 
+//------------------------------------------------
+
+void
+make_error_response(
+    proto::status code,
+    proto::request_view const& req,
+    proto::response& res,
+    proto::serializer& sr)
+{
+    auto rv = urls::parse_authority(
+        req.value_or(proto::field::host, ""));
+    proto::string_view host;
+    if(rv.has_value())
+        host = rv->buffer();
+    else
+        host = "";
+
+    std::string s;
+    s  = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n";
+    s += "<html><head>\n";
+    s += "<title>";
+        s += std::to_string(static_cast<
+            std::underlying_type<
+                proto::status>::type>(code));
+        s += " ";
+        s += proto::obsolete_reason(code);
+        s += "</title>\n";
+    s += "</head><body>\n";
+    s += "<h1>";
+        s += proto::obsolete_reason(code);
+        s += "</h1>\n";
+    if(code == proto::status::not_found)
+    {
+        s += "<p>The requested URL ";
+        s += req.target();
+        s += " was not found on this server.</p>\n";
+    }
+    s += "<hr>\n";
+    s += "<address>Boost.Http.IO/1.0b (Win10) Server at ";
+        s += rv->host_address();
+        s += " Port ";
+        s += rv->port();
+        s += "</address>\n";
+    s += "</body></html>\n";
+
+    res.set_start_line(code, res.version());
+    res.set_keep_alive(req.keep_alive());
+    res.set_payload_size(s.size());
+    res.append(proto::field::content_type,
+        "text/html; charset=iso-8859-1");
+    res.append(proto::field::date,
+        "Mon, 12 Dec 2022 03:26:32 GMT");
+    res.append(proto::field::server,
+        "Boost.Http.IO/1.0b (Win10)");
+
+    sr.reset(res);
+    sr.set_body(
+        proto::string_body(
+            std::move(s)));
+}
 
 //------------------------------------------------
 
@@ -126,56 +191,6 @@ handle_request(
     proto::response& res,
     proto::serializer& sr)
 {
-    sr.reset();
-
-    // Returns a bad request response
-
-    auto const bad_request =
-    [&req, &res, &sr](
-        proto::string_view why)
-    {
-        (void)why;
-#if 0
-        http::response<http::string_body> res{http::status::bad_request, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = std::string(why);
-        res.prepare_payload();
-#endif
-    };
-
-    // Returns a not found response
-    auto const not_found =
-    [&req, &res, &sr](
-        proto::string_view target)
-    {
-        (void)target;
-        //sr.reset();
-        res.set_start_line(
-            proto::status::not_found,
-            req.version());
-        //res.keep_alive(req.keep_alive());
-        //res.set_content_length(0);
-        res.append(
-            proto::field::content_type,
-            "text/html");
-        res.append(
-            proto::field::content_length,
-            "10");
-        sr.set_header(res);
-        set_body(sr, proto::string_view("Not found."));
-
-#if 0
-        http::response<http::string_body> res{http::status::not_found, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = "The resource '" + std::string(target) + "' was not found.";
-        res.prepare_payload();
-#endif
-    };
-
 #if 0
     // Returns a server error response
     auto const server_error =
@@ -195,7 +210,8 @@ handle_request(
     if( req.target().empty() ||
         req.target()[0] != '/' ||
         req.target().find("..") != proto::string_view::npos)
-        return bad_request("Illegal request-target");
+        return make_error_response(
+            proto::status::bad_request, req, res, sr);
 
     // Build the path to the requested file
     std::string path;
@@ -216,21 +232,23 @@ handle_request(
             proto::status::ok,
             req.version());
         res.set(proto::field::server, "Boost");
-        //res.keep_alive(req.keep_alive());
+        res.set_keep_alive(req.keep_alive());
         res.set_payload_size(size);
-
         res.append(
             proto::field::content_type,
             mime_type(path));
-        sr.set_header(res);
-        proto::set_body<
-            proto::buffered_source<
-                proto::file_source>>(
-            sr, 0, std::move(f), 0, size);
+
+        sr.reset(res);
+        sr.set_body(
+            proto::file_body(
+                std::move(f), size));
         return;
     }
 
-    return not_found(req.target());
+    // ec.message()?
+    return make_error_response(
+        proto::status::internal_server_error,
+            req, res, sr);
 }
 
 //------------------------------------------------
@@ -283,16 +301,17 @@ private:
         io::error_code ec;
         s_.close(ec);
         p_.reset();
-        sr_.reset();
 
         a_.async_accept( s_,
             [this](io::error_code const& ec)
             {
                 if( ec.failed() )
                 {
+                #ifdef LOGGING
                     std::cerr <<
                         "async_accept[" << id_ << "]: " <<
                         ec.message() << "\n";
+                #endif
 
                     if( ec != asio::error::operation_aborted )
                         return accept();
@@ -322,9 +341,11 @@ private:
 
                 if( ec.failed() )
                 {
+                #ifdef LOGGING
                     std::cerr <<
                         "async_read[" << id_ << "]: " <<
                         ec.message() << "\n";
+                #endif
 
                     if( ec == asio::error::operation_aborted )
                         return;
@@ -352,10 +373,12 @@ private:
         handle_request(
             doc_root_, p_.get(), res_, sr_);
 
+    #ifdef LOGGING
         std::cerr << 
             p_.get().buffer() <<
             res_.buffer() <<
             "--------------------------------------------------\n";
+    #endif
 
         io::async_write( s_, sr_,
             [this](
@@ -366,9 +389,11 @@ private:
 
                 if( ec.failed() )
                 {
+                #ifdef LOGGING
                     std::cerr <<
                         "async_write[" << id_ << "]: " <<
                         ec.message() << "\n";
+                #endif
 
                     if( ec != asio::error::operation_aborted )
                         return accept();
@@ -391,9 +416,9 @@ int main(int argc, char* argv[])
         {
             std::cerr << "Usage: http_server_async <address> <port> <doc_root> <num_workers>\n";
             std::cerr << "  For IPv4, try:\n";
-            std::cerr << "    http_server_fast 0.0.0.0 80 . 100 block\n";
+            std::cerr << "    http_server_async 0.0.0.0 80 . 100\n";
             std::cerr << "  For IPv6, try:\n";
-            std::cerr << "    http_server_fast 0::0 80 . 100 block\n";
+            std::cerr << "    http_server_async 0::0 80 . 100\n";
             return EXIT_FAILURE;
         }
 
