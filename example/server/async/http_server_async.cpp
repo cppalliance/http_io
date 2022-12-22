@@ -25,17 +25,21 @@ using tcp = boost::asio::ip::tcp;
 
 // Return a reasonable mime type based on the extension of a file.
 proto::string_view
+get_extension(
+    proto::string_view path) noexcept
+{
+    auto const pos = path.rfind(".");
+    if(pos == proto::string_view::npos)
+        return proto::string_view();
+    return path.substr(pos);
+}
+
+proto::string_view
 mime_type(
     proto::string_view path)
 {
     using grammar::ci_is_equal;
-    auto const ext = [&path]
-    {
-        auto const pos = path.rfind(".");
-        if(pos == proto::string_view::npos)
-            return proto::string_view();
-        return path.substr(pos);
-    }();
+    auto ext = get_extension(path);
     if(ci_is_equal(ext, ".htm"))  return "text/html";
     if(ci_is_equal(ext, ".html")) return "text/html";
     if(ci_is_equal(ext, ".php"))  return "text/html";
@@ -155,7 +159,7 @@ make_error_response(
     if(code == proto::status::not_found)
     {
         s += "<p>The requested URL ";
-        s += req.target();
+        s += req.target_text();
         s += " was not found on this server.</p>\n";
     }
     s += "<hr>\n";
@@ -186,6 +190,7 @@ make_error_response(
 
 void
 handle_request(
+    proto::context& ctx,
     proto::string_view doc_root,
     proto::request_view const& req,
     proto::response& res,
@@ -207,16 +212,16 @@ handle_request(
 #endif
 
     // Request path must be absolute and not contain "..".
-    if( req.target().empty() ||
-        req.target()[0] != '/' ||
-        req.target().find("..") != proto::string_view::npos)
+    if( req.target_text().empty() ||
+        req.target_text()[0] != '/' ||
+        req.target_text().find("..") != proto::string_view::npos)
         return make_error_response(
             proto::status::bad_request, req, res, sr);
 
     // Build the path to the requested file
     std::string path;
-    path_cat(path, doc_root, req.target());
-    if(req.target().back() == '/')
+    path_cat(path, doc_root, req.target_text());
+    if(req.target_text().back() == '/')
         path.append("index.html");
 
     // Attempt to open the file
@@ -234,9 +239,14 @@ handle_request(
         res.set(proto::field::server, "Boost");
         res.set_keep_alive(req.keep_alive());
         res.set_payload_size(size);
+
+        auto& svc =
+            ctx.get_service<
+                proto::mime_types_service>();
+        auto mt = svc.find(get_extension(path));
         res.append(
             proto::field::content_type,
-            mime_type(path));
+            mt.value);
 
         sr.reset(res);
         sr.set_body(
@@ -257,6 +267,7 @@ template< class Executor >
 class worker
 {
     // order of destruction matters here
+    proto::context& ctx_;
     std::string const& doc_root_;
     proto::request_parser p_;
     proto::response res_;
@@ -270,11 +281,13 @@ public:
     worker(worker const&) = delete;
 
     worker(
+        proto::context& ctx,
         std::string const& doc_root,
         asio::basic_socket_acceptor<tcp, Executor>& a,
         proto::parser::config const& cfg,
         std::size_t buffer_size)
-        : doc_root_(doc_root)
+        : ctx_(ctx)
+        , doc_root_(doc_root)
         , p_(cfg, buffer_size)
         , sr_(4096)
         , a_(a)
@@ -371,7 +384,11 @@ private:
         res_.clear();
 
         handle_request(
-            doc_root_, p_.get(), res_, sr_);
+            ctx_,
+            doc_root_,
+            p_.get(),
+            res_,
+            sr_);
 
     #ifdef LOGGING
         std::cerr << 
@@ -433,6 +450,8 @@ int main(int argc, char* argv[])
         asio::basic_socket_acceptor<tcp, executor_type> a( ioc, { addr, port } );
         proto::context ctx;
 
+        proto::install_mime_types_service(ctx);
+
         file_handler fh(ctx, doc_root);
 
         // Capture SIGINT and SIGTERM to perform a clean shutdown
@@ -451,7 +470,7 @@ int main(int argc, char* argv[])
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
         {
-            v.emplace_back( doc_root, a, cfg, 8192 );
+            v.emplace_back( ctx, doc_root, a, cfg, 8192 );
             v.back().run();
         }
         ioc.run();
