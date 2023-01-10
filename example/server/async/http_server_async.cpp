@@ -31,7 +31,7 @@ get_extension(
     auto const pos = path.rfind(".");
     if(pos == proto::string_view::npos)
         return proto::string_view();
-    return path.substr(pos);
+    return path.substr(pos + 1);
 }
 
 proto::string_view
@@ -180,8 +180,8 @@ make_error_response(
     res.append(proto::field::server,
         "Boost.Http.IO/1.0b (Win10)");
 
-    sr.reset(res);
-    sr.set_body(
+    sr.reset(
+        res,
         proto::string_body(
             std::move(s)));
 }
@@ -248,8 +248,8 @@ handle_request(
             proto::field::content_type,
             mt.value);
 
-        sr.reset(res);
-        sr.set_body(
+        sr.reset(
+            res,
             proto::file_body(
                 std::move(f), size));
         return;
@@ -289,7 +289,7 @@ public:
         : ctx_(ctx)
         , doc_root_(doc_root)
         , p_(cfg, buffer_size)
-        , sr_(4096)
+        , sr_(8192)
         , a_(a)
         , s_(a_.get_executor())
         , id_([]

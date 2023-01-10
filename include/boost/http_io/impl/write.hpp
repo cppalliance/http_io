@@ -11,6 +11,7 @@
 #define BOOST_HTTP_IO_IMPL_WRITE_HPP
 
 #include <boost/http_io/error.hpp>
+#include <boost/asio/append.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/compose.hpp>
 #include <boost/asio/coroutine.hpp>
@@ -24,14 +25,14 @@ namespace detail {
 
 class write_buffers
 {
-    http_proto::serializer::buffers b_;
+    http_proto::serializer::output_buffers b_;
 
 public:
     class iterator;
 
     explicit
     write_buffers(
-        http_proto::serializer::buffers b) noexcept
+        http_proto::serializer::output_buffers b) noexcept
         : b_(b)
     {
     }
@@ -42,8 +43,9 @@ public:
 
 class write_buffers::iterator
 {
-    using iter_type = 
-        http_proto::serializer::buffers::iterator;
+    using buffers_type =
+        http_proto::serializer::output_buffers;
+    using iter_type = buffers_type::iterator;
 
     iter_type it_{};
 
@@ -125,18 +127,155 @@ end() const noexcept ->
 
 //------------------------------------------------
 
-template<class Stream>
+template<class WriteStream>
 class write_some_op
     : public asio::coroutine
 {
-    Stream& s_;
+    using buffers_type =
+        http_proto::serializer::output_buffers;
+
+    WriteStream& dest_;
     http_proto::serializer& sr_;
 
 public:
     write_some_op(
-        Stream& s,
+        WriteStream& dest,
         http_proto::serializer& sr) noexcept
-        : s_(s)
+        : dest_(dest)
+        , sr_(sr)
+    {
+    }
+
+    template<class Self>
+    void
+    operator()(Self& self)
+    {
+        (*this)(self, {}, 0, true);
+    }
+
+    template<class Self>
+    void
+    operator()(
+        Self& self,
+        error_code ec,
+        std::size_t bytes_transferred,
+        bool do_post = false)
+    {
+        urls::result<buffers_type> rv;
+
+        BOOST_ASIO_CORO_REENTER(*this)
+        {
+            rv = sr_.prepare();
+            if(! rv)
+            {
+                ec = rv.error();
+                if(! do_post)
+                    goto upcall;
+                BOOST_ASIO_CORO_YIELD
+                {
+                    BOOST_ASIO_HANDLER_LOCATION((
+                        __FILE__, __LINE__,
+                        "http_io::write_some_op"));
+                    asio::post(asio::append(
+                        std::move(self), ec,
+                            bytes_transferred));
+                }
+                goto upcall;
+            }
+
+            BOOST_ASIO_CORO_YIELD
+            {
+                BOOST_ASIO_HANDLER_LOCATION((
+                    __FILE__, __LINE__,
+                    "http_io::write_some_op"));
+                dest_.async_write_some(
+                    write_buffers(*rv),
+                    std::move(self));
+            }
+            sr_.consume(bytes_transferred);
+
+        upcall:
+            self.complete(
+                ec, bytes_transferred );
+        }
+    }
+};
+
+//------------------------------------------------
+
+template<class WriteStream>
+class write_op
+    : public asio::coroutine
+{
+    WriteStream& dest_;
+    http_proto::serializer& sr_;
+    std::size_t n_ = 0;
+
+public:
+    write_op(
+        WriteStream& dest,
+        http_proto::serializer& sr) noexcept
+        : dest_(dest)
+        , sr_(sr)
+    {
+    }
+
+    template<class Self>
+    void
+    operator()(
+        Self& self,
+        error_code ec = {},
+        std::size_t bytes_transferred = 0)
+    {
+        BOOST_ASIO_CORO_REENTER(*this)
+        {
+            do
+            {
+                BOOST_ASIO_CORO_YIELD
+                {
+                    BOOST_ASIO_HANDLER_LOCATION((
+                        __FILE__, __LINE__,
+                        "http_io::write_op"));
+                    async_write_some(
+                        dest_, sr_, std::move(self));
+                }
+                n_ += bytes_transferred;
+                if(ec.failed())
+                    break;
+            }
+            while(! sr_.is_done());
+
+            // upcall
+            self.complete(ec, n_ );
+        }
+    }
+};
+
+//------------------------------------------------
+
+#if 0
+template<
+    class WriteStream,
+    class ReadStream,
+    class CompletionCondition>
+class relay_some_op
+    : public asio::coroutine
+{
+    WriteStream& dest_;
+    ReadStream& src_;
+    CompletionCondition cond_;
+    http_proto::serializer& sr_;
+    std::size_t bytes_read_ = 0;
+
+public:
+    relay_some_op(
+        WriteStream& dest,
+        ReadStream& src,
+        CompletionCondition const& cond,
+        http_proto::serializer& sr) noexcept
+        : dest_(dest)
+        , src_(src)
+        , cond_(cond)
         , sr_(sr)
     {
     }
@@ -153,10 +292,7 @@ public:
 
         BOOST_ASIO_CORO_REENTER(*this)
         {
-            // Calling this function when the
-            // serializer has nothing to do
-            // incurs an unnecessary cost.
-            // 
+            // Nothing to do
             BOOST_ASSERT(! sr_.is_complete());
 
             rv = sr_.prepare();
@@ -167,7 +303,7 @@ public:
                 {
                     BOOST_ASIO_HANDLER_LOCATION((
                         __FILE__, __LINE__,
-                        "http_io::write_some_op"));
+                        "http_io::relay_some_op"));
                     asio::post(std::move(self));
                 }
                 goto upcall;
@@ -177,8 +313,8 @@ public:
             {
                 BOOST_ASIO_HANDLER_LOCATION((
                     __FILE__, __LINE__,
-                    "http_io::write_some_op"));
-                s_.async_write_some(
+                    "http_io::relay_some_op"));
+                dest_.async_write_some(
                     write_buffers(*rv),
                     std::move(self));
             }
@@ -190,76 +326,7 @@ public:
         }
     }
 };
-
-//------------------------------------------------
-
-template<class Stream>
-class write_op
-    : public asio::coroutine
-{
-    Stream& s_;
-    http_proto::serializer& sr_;
-    std::size_t n_ = 0;
-
-public:
-    write_op(
-        Stream& s,
-        http_proto::serializer& sr) noexcept
-        : s_(s)
-        , sr_(sr)
-    {
-    }
-
-    template<class Self>
-    void
-    operator()(
-        Self& self,
-        error_code ec = {},
-        std::size_t bytes_transferred = 0)
-    {
-        BOOST_ASIO_CORO_REENTER(*this)
-        {
-            // Calling this function when the
-            // serializer has nothing to do
-            // incurs an unnecessary cost.
-            // 
-            BOOST_ASSERT(! sr_.is_complete());
-
-        #if 0
-            if(sr_.is_complete())
-            {
-                BOOST_ASIO_CORO_YIELD
-                {
-                    BOOST_ASIO_HANDLER_LOCATION((
-                        __FILE__, __LINE__,
-                        "http_io::write_op"));
-                    asio::post(std::move(self));
-                }
-                goto upcall;
-            }
-        #endif
-
-            do
-            {
-                BOOST_ASIO_CORO_YIELD
-                {
-                    BOOST_ASIO_HANDLER_LOCATION((
-                        __FILE__, __LINE__,
-                        "http_io::write_op"));
-                    async_write_some(
-                        s_, sr_, std::move(self));
-                }
-                n_ += bytes_transferred;
-                if(ec.failed())
-                    break;
-            }
-            while(! sr_.is_complete());
-
-            // upcall
-            self.complete(ec, n_ );
-        }
-    }
-};
+#endif
 
 } // detail
 
@@ -272,7 +339,7 @@ template<
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write_some(
-    AsyncWriteStream& s,
+    AsyncWriteStream& dest,
     boost::http_proto::serializer& sr,
     CompletionToken&& token)
 {
@@ -280,8 +347,8 @@ async_write_some(
         CompletionToken,
         void(error_code, std::size_t)>(
             detail::write_some_op<
-                AsyncWriteStream>{s, sr},
-            token, s);
+                AsyncWriteStream>{dest, sr},
+            token, dest);
 }
 
 template<
@@ -291,7 +358,7 @@ template<
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write(
-    AsyncWriteStream& s,
+    AsyncWriteStream& dest,
     boost::http_proto::serializer& sr,
     CompletionToken&& token)
 {
@@ -299,10 +366,40 @@ async_write(
         CompletionToken,
         void(error_code, std::size_t)>(
             detail::write_op<
-                AsyncWriteStream>{s, sr},
+                AsyncWriteStream>{dest, sr},
             token,
-            s);
+            dest);
 }
+
+#if 0
+template<
+    class AsyncWriteStream,
+    class AsyncReadStream,
+    class CompletionCondition,
+    BOOST_ASIO_COMPLETION_TOKEN_FOR(
+        void(error_code, std::size_t)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
+    void (error_code, std::size_t))
+async_relay_some(
+    AsyncWriteStream& dest,
+    AsyncReadStream& src,
+    CompletionCondition const& cond,
+    boost::http_proto::serializer& sr,
+    CompletionToken&& token)
+{
+    return asio::async_compose<
+        CompletionToken,
+        void(error_code, std::size_t)>(
+            detail::relay_some_op<
+                AsyncWriteStream,
+                AsyncReadStream,
+                CompletionCondition>{
+                    dest, src, cond, sr},
+            token,
+            dest,
+            src);
+}
+#endif
 
 } // http_io
 } // boost

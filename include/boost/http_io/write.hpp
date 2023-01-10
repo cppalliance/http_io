@@ -18,6 +18,8 @@
 namespace boost {
 namespace http_io {
 
+/**
+*/
 template<
     class AsyncWriteStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
@@ -25,9 +27,41 @@ template<
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write_some(
-    AsyncWriteStream& s,
+    AsyncWriteStream& dest,
     boost::http_proto::serializer& sr,
     CompletionToken&& token);
+
+/**
+*/
+template<
+    class AsyncWriteStream,
+    BOOST_ASIO_COMPLETION_TOKEN_FOR(
+        void(error_code, std::size_t)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
+    void (error_code, std::size_t))
+async_write(
+    AsyncWriteStream& dest,
+    boost::http_proto::serializer& sr,
+    CompletionToken&& token);
+
+#if 0
+/**
+*/
+template<
+    class AsyncWriteStream,
+    class AsyncReadStream,
+    class CompletionCondition,
+    BOOST_ASIO_COMPLETION_TOKEN_FOR(
+        void(error_code, std::size_t)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
+    void (error_code, std::size_t))
+async_relay_some(
+    AsyncWriteStream& dest,
+    AsyncReadStream& src,
+    CompletionCondition const& cond,
+    boost::http_proto::serializer& sr,
+    CompletionToken&& token);
+#endif
 
 } // http_io
 } // boost

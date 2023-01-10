@@ -15,14 +15,9 @@
 namespace boost {
 namespace http_io {
 
-#if 0
-
-auto write_header( Stream&, serializer& );
-auto write( Stream&, serializer& );
-auto write( Stream&, serializer&, ConstBuffers const& );
-auto write( Stream&, serializer&, Generator&& );
-
-#endif
+class any_async_read_stream
+{
+};
 
 class write_test
 {
