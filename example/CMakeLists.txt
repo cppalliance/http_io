@@ -7,6 +7,4 @@
 # Official repository: https://github.com/vinniefalco/http_io
 #
 
-add_subdirectory (client)
 add_subdirectory (server)
-

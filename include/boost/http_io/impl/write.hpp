@@ -176,8 +176,11 @@ public:
                     BOOST_ASIO_HANDLER_LOCATION((
                         __FILE__, __LINE__,
                         "http_io::write_some_op"));
-                    asio::post(asio::append(
-                        std::move(self), ec,
+                    asio::post(
+                        dest_.get_executor(),
+                        asio::append(
+                            std::move(self),
+                            ec,
                             bytes_transferred));
                 }
                 goto upcall;
@@ -340,7 +343,7 @@ BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write_some(
     AsyncWriteStream& dest,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token)
 {
     return asio::async_compose<
@@ -359,7 +362,7 @@ BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write(
     AsyncWriteStream& dest,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token)
 {
     return asio::async_compose<
@@ -384,7 +387,7 @@ async_relay_some(
     AsyncWriteStream& dest,
     AsyncReadStream& src,
     CompletionCondition const& cond,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token)
 {
     return asio::async_compose<

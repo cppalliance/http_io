@@ -15,6 +15,7 @@ set(EXTRAFILES
 set(PFILES
     CMakeLists.txt
     #Jamfile
+    buffer.cpp
     error.cpp
     read.cpp
     sandbox.cpp
@@ -26,6 +27,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES})
 source_group("_extra" FILES ${EXTRAFILES})
 add_executable(boost_http_io_tests ${PFILES} ${EXTRAFILES})
 target_include_directories(boost_http_io_tests PRIVATE . ../../url/extra)
+target_compile_definitions(boost_http_io_tests PRIVATE BOOST_ASIO_NO_DEPRECATED)
 target_link_libraries(boost_http_io_tests PRIVATE
     OpenSSL::SSL
     Boost::http_io)

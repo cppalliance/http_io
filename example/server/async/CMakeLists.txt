@@ -14,6 +14,8 @@ source_group("" FILES
 add_executable (http-server-async
     http_server_async.cpp
 )
+target_compile_definitions(
+    http-server-async PRIVATE BOOST_ASIO_NO_DEPRECATED)
 
 set_property(
     TARGET http-server-async

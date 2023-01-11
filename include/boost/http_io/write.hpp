@@ -28,7 +28,7 @@ BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write_some(
     AsyncWriteStream& dest,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token);
 
 /**
@@ -41,7 +41,7 @@ BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (error_code, std::size_t))
 async_write(
     AsyncWriteStream& dest,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token);
 
 #if 0
