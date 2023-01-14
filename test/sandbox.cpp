@@ -21,8 +21,8 @@
 namespace boost {
 namespace http_proto {
 
-static std::size_t constexpr buffer_size = 8 * 1024 * 1024;
-static std::size_t constexpr payload_size = buffer_size * 10;
+static std::size_t constexpr buffer_bytes = 8 * 1024 * 1024;
+static std::size_t constexpr payload_size = buffer_bytes * 10;
 
 using tcp = asio::ip::tcp;
 namespace ssl = asio::ssl;
@@ -88,8 +88,8 @@ struct sandbox_test
 
         tcp::resolver dns(ioc);
         logging_socket sock(ioc);
-        std::unique_ptr<char[]> up(new char[buffer_size]);
-        asio::mutable_buffer mb(up.get(), buffer_size);
+        std::unique_ptr<char[]> up(new char[buffer_bytes]);
+        asio::mutable_buffer mb(up.get(), buffer_bytes);
         request req;
 
         asio::async_connect(
@@ -116,8 +116,8 @@ struct sandbox_test
         while(n < payload_size)
         {
             auto amount = payload_size - n;
-            if( amount > buffer_size)
-                amount = buffer_size;
+            if( amount > buffer_bytes)
+                amount = buffer_bytes;
             auto const t0 = clock_type::now();
             auto bytes_transferred =
                 asio::async_write(
@@ -151,8 +151,8 @@ struct sandbox_test
         
         tcp::resolver dns(ioc);
         tcp::socket sock(ioc);
-        std::unique_ptr<char[]> up(new char[buffer_size]);
-        asio::mutable_buffer mb(up.get(), buffer_size);
+        std::unique_ptr<char[]> up(new char[buffer_bytes]);
+        asio::mutable_buffer mb(up.get(), buffer_bytes);
         request req;
 
         asio::async_connect(
@@ -179,8 +179,8 @@ struct sandbox_test
         while(n < payload_size)
         {
             auto amount = payload_size - n;
-            if( amount > buffer_size)
-                amount = buffer_size;
+            if( amount > buffer_bytes)
+                amount = buffer_bytes;
             auto const t0 = clock_type::now();
             auto bytes_transferred =
                 sock.async_write_some(
