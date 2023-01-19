@@ -25,14 +25,14 @@ namespace detail {
 
 class write_buffers
 {
-    http_proto::serializer::output_buffers b_;
+    http_proto::serializer::output b_;
 
 public:
     class iterator;
 
     explicit
     write_buffers(
-        http_proto::serializer::output_buffers b) noexcept
+        http_proto::serializer::output b) noexcept
         : b_(b)
     {
     }
@@ -44,7 +44,7 @@ public:
 class write_buffers::iterator
 {
     using buffers_type =
-        http_proto::serializer::output_buffers;
+        http_proto::serializer::output;
     using iter_type = buffers_type::iterator;
 
     iter_type it_{};
@@ -132,7 +132,7 @@ class write_some_op
     : public asio::coroutine
 {
     using buffers_type =
-        http_proto::serializer::output_buffers;
+        http_proto::serializer::output;
 
     WriteStream& dest_;
     http_proto::serializer& sr_;

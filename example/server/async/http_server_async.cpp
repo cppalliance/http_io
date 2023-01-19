@@ -180,7 +180,7 @@ make_error_response(
     res.append(proto::field::server,
         "Boost.Http.IO/1.0b (Win10)");
 
-    sr.reset(
+    sr.start(
         res,
         proto::string_body(
             std::move(s)));
@@ -248,7 +248,7 @@ handle_request(
             proto::field::content_type,
             mt.value);
 
-        sr.reset(
+        sr.start(
             res,
             proto::file_body(
                 std::move(f), size));
@@ -269,7 +269,7 @@ class worker
     // order of destruction matters here
     proto::context& ctx_;
     std::string const& doc_root_;
-    proto::request_parser p_;
+    proto::request_parser pr_;
     proto::response res_;
     proto::serializer sr_;
     asio::basic_socket_acceptor<tcp, Executor>& a_;
@@ -284,12 +284,11 @@ public:
         proto::context& ctx,
         std::string const& doc_root,
         asio::basic_socket_acceptor<tcp, Executor>& a,
-        proto::parser::config const& cfg,
-        std::size_t buffer_size)
+        proto::request_parser::config const& cfg)
         : ctx_(ctx)
         , doc_root_(doc_root)
-        , p_(cfg, buffer_size)
-        , sr_(8192)
+        , pr_(65536, cfg)
+        , sr_(65536)
         , a_(a)
         , s_(a_.get_executor())
         , id_([]
@@ -313,7 +312,7 @@ private:
         // Clean up any previous connection.
         io::error_code ec;
         s_.close(ec);
-        p_.reset();
+        pr_.reset();
 
         a_.async_accept( s_,
             [this](io::error_code const& ec)
@@ -343,9 +342,9 @@ private:
     void
     read()
     {
-        p_.reset();
+        pr_.start();
 
-        io::async_read( s_, p_,
+        io::async_read( s_, pr_,
             [this](
                 io::error_code ec,
                 std::size_t n)
@@ -386,13 +385,13 @@ private:
         handle_request(
             ctx_,
             doc_root_,
-            p_.get(),
+            pr_.get(),
             res_,
             sr_);
 
     #ifdef LOGGING
         std::cerr << 
-            p_.get().buffer() <<
+            pr_.get().buffer() <<
             res_.buffer() <<
             "--------------------------------------------------\n";
     #endif
@@ -465,12 +464,12 @@ int main(int argc, char* argv[])
                 ioc.stop();
             });
 
-        proto::parser::config cfg;
+        proto::request_parser::config cfg;
         std::vector<worker<executor_type>> v;
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
         {
-            v.emplace_back( ctx, doc_root, a, cfg, 8192 );
+            v.emplace_back( ctx, doc_root, a, cfg );
             v.back().run();
         }
         ioc.run();

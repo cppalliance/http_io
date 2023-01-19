@@ -18,7 +18,7 @@
 namespace boost {
 namespace http_io {
 
-/**
+/** Write HTTP data to a stream
 */
 template<
     class AsyncWriteStream,
@@ -31,7 +31,7 @@ async_write_some(
     http_proto::serializer& sr,
     CompletionToken&& token);
 
-/**
+/** Write HTTP data to a stream
 */
 template<
     class AsyncWriteStream,
@@ -59,7 +59,7 @@ async_relay_some(
     AsyncWriteStream& dest,
     AsyncReadStream& src,
     CompletionCondition const& cond,
-    boost::http_proto::serializer& sr,
+    http_proto::serializer& sr,
     CompletionToken&& token);
 #endif
 
