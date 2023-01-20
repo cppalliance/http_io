@@ -13,7 +13,7 @@
 #include <boost/http_io/buffer.hpp>
 #include <boost/http_proto/error.hpp>
 #include <boost/http_proto/parser.hpp>
-#include <boost/url/grammar/error.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/compose.hpp>
 #include <boost/asio/coroutine.hpp>
 #include <boost/assert.hpp>
@@ -22,6 +22,110 @@ namespace boost {
 namespace http_io {
 
 namespace detail {
+
+class read_buffers
+{
+    http_proto::parser::buffers b_;
+
+public:
+    class iterator;
+
+    explicit
+    read_buffers(
+        http_proto::parser::buffers b) noexcept
+        : b_(b)
+    {
+    }
+
+    iterator begin() const noexcept;
+    iterator end() const noexcept;
+};
+
+class read_buffers::iterator
+{
+    using buffers_type =
+        http_proto::parser::buffers;
+    using iter_type = buffers_type::iterator;
+
+    iter_type it_{};
+
+    friend class read_buffers;
+
+    iterator(iter_type it)
+        : it_(it)
+    {
+    }
+
+public:
+    using value_type = asio::mutable_buffer;
+    using reference = value_type;
+    using pointer = value_type const*;
+    using difference_type = std::ptrdiff_t;
+    using iterator_category =
+        std::forward_iterator_tag;
+
+    iterator() = default;
+    iterator(
+        iterator const&) = default;
+    iterator& operator=(
+        iterator const&) = default;
+
+    asio::mutable_buffer
+    operator*() const noexcept
+    {
+        auto const mb(*it_);
+        return { mb.data(), mb.size() };
+    }
+
+    bool
+    operator==(
+        iterator const& other) const noexcept
+    {
+        return it_ == other.it_;
+    }
+
+    bool
+    operator!=(
+        iterator const& other) const noexcept
+    {
+        return it_ != other.it_;
+    }
+
+    iterator&
+    operator++() noexcept
+    {
+        ++it_;
+        return *this;
+    }
+
+    iterator
+    operator++(int) noexcept
+    {
+        auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+};
+
+inline
+auto
+read_buffers::
+begin() const noexcept ->
+    iterator
+{
+    return iterator(b_.begin());
+}
+
+inline
+auto
+read_buffers::
+end() const noexcept ->
+    iterator
+{
+    return iterator(b_.end());
+}
+
+//------------------------------------------------
 
 template<class Stream>
 class read_some_op
@@ -55,7 +159,7 @@ public:
                     __FILE__, __LINE__,
                     "Stream::async_read_some"));
                 s_.async_read_some(
-                    mutable_buffers(
+                    read_buffers(
                         p_.prepare()),
                     std::move(self));
             }
