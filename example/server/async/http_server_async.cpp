@@ -263,6 +263,9 @@ handle_request(
 
 //------------------------------------------------
 
+BOOST_STATIC_ASSERT(
+    std::is_move_constructible<proto::serializer>::value);
+
 template< class Executor >
 class worker
 {
