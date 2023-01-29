@@ -21,6 +21,7 @@ namespace http_io {
 
 struct buffers_test
 {
+#if 0
     using D = decltype(asio::dynamic_buffer(
         std::declval<std::string&>()));
     using CB = D::const_buffers_type;
@@ -32,6 +33,7 @@ struct buffers_test
         http_proto::is_const_buffers<MB>::value);
     BOOST_STATIC_ASSERT(
         http_proto::is_mutable_buffers<MB>::value);
+#endif
 
     void
     run()

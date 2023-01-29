@@ -23,110 +23,6 @@ namespace http_io {
 
 namespace detail {
 
-class write_buffers
-{
-    http_proto::serializer::buffers b_;
-
-public:
-    class iterator;
-
-    explicit
-    write_buffers(
-        http_proto::serializer::buffers b) noexcept
-        : b_(b)
-    {
-    }
-
-    iterator begin() const noexcept;
-    iterator end() const noexcept;
-};
-
-class write_buffers::iterator
-{
-    using buffers_type =
-        http_proto::serializer::buffers;
-    using iter_type = buffers_type::iterator;
-
-    iter_type it_{};
-
-    friend class write_buffers;
-
-    iterator(iter_type it)
-        : it_(it)
-    {
-    }
-
-public:
-    using value_type = asio::const_buffer;
-    using reference = value_type;
-    using pointer = value_type const*;
-    using difference_type = std::ptrdiff_t;
-    using iterator_category =
-        std::forward_iterator_tag;
-
-    iterator() = default;
-    iterator(
-        iterator const&) = default;
-    iterator& operator=(
-        iterator const&) = default;
-
-    asio::const_buffer
-    operator*() const noexcept
-    {
-        auto const cb(*it_);
-        return { cb.data(), cb.size() };
-    }
-
-    bool
-    operator==(
-        iterator const& other) const noexcept
-    {
-        return it_ == other.it_;
-    }
-
-    bool
-    operator!=(
-        iterator const& other) const noexcept
-    {
-        return it_ != other.it_;
-    }
-
-    iterator&
-    operator++() noexcept
-    {
-        ++it_;
-        return *this;
-    }
-
-    iterator
-    operator++(int) noexcept
-    {
-        auto temp = *this;
-        ++(*this);
-        return temp;
-    }
-};
-
-inline
-auto
-write_buffers::
-begin() const noexcept ->
-    iterator
-{
-    return iterator(b_.begin());
-}
-
-inline
-auto
-write_buffers::
-end() const noexcept ->
-    iterator
-{
-    return iterator(b_.end());
-}
-
-//------------------------------------------------
-
 template<class WriteStream>
 class write_some_op
     : public asio::coroutine
@@ -192,7 +88,7 @@ public:
                     __FILE__, __LINE__,
                     "http_io::write_some_op"));
                 dest_.async_write_some(
-                    write_buffers(*rv),
+                    *rv,
                     std::move(self));
             }
             sr_.consume(bytes_transferred);
