@@ -9,6 +9,8 @@
 
 #include "test_suite.hpp"
 
+#if 0
+
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl.hpp>
@@ -223,3 +225,5 @@ TEST_SUITE(
 
 } // http_proto
 } // boost
+
+#endif

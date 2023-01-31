@@ -1,0 +1,15 @@
+{
+    "key": "http_io",
+    "name": "Http.Io",
+    "authors": [
+        "Vinnie Falco"
+    ],
+    "description": "HTTP/1 using Asio in C++11",
+    "category": [
+        "Networking"
+    ],
+    "maintainers": [
+        "Vinnie Falco <vinnie.falco@gmail.com>"
+    ],
+    "cxxstd": "11"
+}

@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2023 Vinnie Falco (vinnie dot falco at gmail dot com)
+#
+# Distributed under the Boost Software License, Version 1.0. (See accompanying
+# file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#
+# Official repository: https://github.com/CPPAlliance/http_io
+#
+
+project boost/http_io
+    : requirements
+      $(c11-requires)
+      <link>shared:<define>BOOST_HTTP_IO_DYN_LINK=1
+      <link>static:<define>BOOST_HTTP_IO_STATIC_LINK=1
+      <target-os>windows:<define>_WIN32_WINNT=0x0601 # VFALCO?
+      <define>BOOST_HTTP_IO_SOURCE
+    : usage-requirements
+      <link>shared:<define>BOOST_HTTP_IO_DYN_LINK=1
+      <link>static:<define>BOOST_HTTP_IO_STATIC_LINK=1
+    : source-location ../src
+    ;
+
+alias http_io_sources
+    :
+    src.cpp
+    ;
+
+explicit http_io_sources ;
+
+lib boost_http_io
+   : http_io_sources
+   : requirements
+     <library>/boost//http_proto
+   : usage-requirements
+     <library>/boost//http_proto
+   ;
+
+boost-install boost_http_io ;
