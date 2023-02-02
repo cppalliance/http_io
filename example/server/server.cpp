@@ -31,7 +31,7 @@ get_extension(
     auto const pos = path.rfind(".");
     if(pos == proto::string_view::npos)
         return proto::string_view();
-    return path.substr(pos + 1);
+    return path.substr(pos);
 }
 
 proto::string_view
@@ -99,15 +99,12 @@ path_cat(
 
 class file_handler
 {
-    proto::context& ctx_;
     std::string doc_root_;
 
 public:
     file_handler(
-        proto::context& ctx,
         proto::string_view doc_root)
-        : ctx_(ctx)
-        , doc_root_(doc_root)
+        : doc_root_(doc_root)
     {
     }
 
@@ -190,7 +187,6 @@ make_error_response(
 
 void
 handle_request(
-    proto::context& ctx,
     proto::string_view doc_root,
     proto::request_view const& req,
     proto::response& res,
@@ -240,13 +236,9 @@ handle_request(
         res.set_keep_alive(req.keep_alive());
         res.set_payload_size(size);
 
-        auto& svc =
-            ctx.get_service<
-                proto::mime_types_service>();
-        auto mt = svc.find(get_extension(path));
+        auto mt = mime_type(get_extension(path));
         res.append(
-            proto::field::content_type,
-            mt.value);
+            proto::field::content_type, mt);
 
         sr.start(
             res,
@@ -270,7 +262,6 @@ template< class Executor >
 class worker
 {
     // order of destruction matters here
-    proto::context& ctx_;
     std::string const& doc_root_;
     proto::request_parser pr_;
     proto::response res_;
@@ -284,12 +275,10 @@ public:
     worker(worker const&) = delete;
 
     worker(
-        proto::context& ctx,
         std::string const& doc_root,
         asio::basic_socket_acceptor<tcp, Executor>& a,
         proto::request_parser::config const& cfg)
-        : ctx_(ctx)
-        , doc_root_(doc_root)
+        : doc_root_(doc_root)
         , pr_(65536, cfg)
         , sr_(65536)
         , a_(a)
@@ -386,7 +375,6 @@ private:
         res_.clear();
 
         handle_request(
-            ctx_,
             doc_root_,
             pr_.get(),
             res_,
@@ -450,11 +438,8 @@ int main(int argc, char* argv[])
 
         asio::io_context ioc( 1 );
         asio::basic_socket_acceptor<tcp, executor_type> a( ioc, { addr, port } );
-        proto::context ctx;
 
-        proto::install_mime_types_service(ctx);
-
-        file_handler fh(ctx, doc_root);
+        file_handler fh(doc_root);
 
         // Capture SIGINT and SIGTERM to perform a clean shutdown
         asio::signal_set signals(ioc, SIGINT, SIGTERM);
@@ -472,7 +457,7 @@ int main(int argc, char* argv[])
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
         {
-            v.emplace_back( ctx, doc_root, a, cfg );
+            v.emplace_back( doc_root, a, cfg );
             v.back().run();
         }
         ioc.run();

@@ -25,14 +25,14 @@ namespace detail {
 
 class read_buffers
 {
-    http_proto::parser::buffers b_;
+    http_proto::parser::mutable_buffers_type b_;
 
 public:
     class iterator;
 
     explicit
     read_buffers(
-        http_proto::parser::buffers b) noexcept
+        http_proto::parser::mutable_buffers_type b) noexcept
         : b_(b)
     {
     }
@@ -44,7 +44,7 @@ public:
 class read_buffers::iterator
 {
     using buffers_type =
-        http_proto::parser::buffers;
+        http_proto::parser::mutable_buffers_type;
     using iter_type = buffers_type::const_iterator;
 
     iter_type it_{};

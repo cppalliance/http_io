@@ -28,7 +28,7 @@ class write_some_op
     : public asio::coroutine
 {
     using buffers_type =
-        http_proto::serializer::buffers;
+        http_proto::serializer::const_buffers_type;
 
     WriteStream& dest_;
     http_proto::serializer& sr_;
