@@ -1,0 +1,59 @@
+[/
+    Copyright (c) 2023 Vinnie Falco (vinnie.falco@gmail.com)
+
+    Distributed under the Boost Software License, Version 1.0. (See accompanying
+    file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+
+    Official repository: https://github.com/CPPAlliance/http_io
+]
+
+[library Boost.Http.Io
+    [id http_io]
+    [quickbook 1.6]
+    [copyright 2021 Vinnie Falco]
+    [purpose HTTP Asio Library]
+    [license
+        Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+        [@http://www.boost.org/LICENSE_1_0.txt])
+    ]
+    [authors [Falco, Vinnie]]
+    [category template]
+    [category generic]
+]
+
+[template mdash[] '''&mdash; ''']
+[template indexterm1[term1] '''<indexterm><primary>'''[term1]'''</primary></indexterm>''']
+[template indexterm2[term1 term2] '''<indexterm><primary>'''[term1]'''</primary><secondary>'''[term2]'''</secondary></indexterm>''']
+
+[template include_file[path][^<'''<ulink url="https://github.com/CPPAlliance/http_io/blob/master/include/'''[path]'''">'''[path]'''</ulink>'''>]]
+[template issue[n] '''<ulink url="https://github.com/CPPAlliance/http_io/issues/'''[n]'''">#'''[n]'''</ulink>''']
+
+[def __rfc7230__                [@https://tools.ietf.org/html/rfc7230 rfc7230]]
+
+[/ Named Requirements ]
+
+[def __Allocator__              [@https://en.cppreference.com/w/cpp/named_req/Allocator ['Allocator]]]
+[def __Copyable__               [@https://en.cppreference.com/w/cpp/concepts/copyable ['Copyable]]]
+[def __CopyAssignable__         [@https://en.cppreference.com/w/cpp/named_req/CopyAssignable ['CopyAssignable]]]
+[def __CopyConstructible__      [@https://en.cppreference.com/w/cpp/named_req/CopyConstructible ['CopyConstructible]]]
+[def __DefaultConstructible__   [@https://en.cppreference.com/w/cpp/named_req/DefaultConstructible ['DefaultConstructible]]]
+[def __Hash__                   [@https://en.cppreference.com/w/cpp/named_req/Hash ['Hash]]]
+[def __InputIterator__          [@https://en.cppreference.com/w/cpp/named_req/InputIterator ['InputIterator]]]
+[def __MoveAssignable__         [@https://en.cppreference.com/w/cpp/named_req/MoveAssignable ['MoveAssignable]]]
+[def __MoveConstructible__      [@https://en.cppreference.com/w/cpp/named_req/MoveConstructible ['MoveConstructible]]]
+[def __SemiRegular__            [@https://en.cppreference.com/w/cpp/concepts/semiregular ['SemiRegular]]]
+[def __Swappable__              [@https://en.cppreference.com/w/cpp/named_req/Swappable ['Swappable]]]
+
+[/-----------------------------------------------------------------------------]
+
+[include 1.0.overview.qbk]
+
+[section:ref Reference]
+[xinclude quickref.xml]
+[block'''<part label="Two: Reference">''']
+[include reference.qbk]
+[block'''</part>''']
+[endsect]
+
+[xinclude index.xml]

@@ -8,8 +8,7 @@
 //
 
 // Test that header file is self-contained.
-// #include <boost/http_io/buffers.hpp>
-#include <boost/http_proto/buffer.hpp>
+#include <boost/buffers/const_buffer.hpp>
 
 #include <boost/asio/buffer.hpp>
 #include <boost/static_assert.hpp>
