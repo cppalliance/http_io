@@ -10,7 +10,6 @@
 #ifndef BOOST_HTTP_IO_IMPL_READ_HPP
 #define BOOST_HTTP_IO_IMPL_READ_HPP
 
-#include <boost/http_io/buffer.hpp>
 #include <boost/http_proto/error.hpp>
 #include <boost/http_proto/parser.hpp>
 #include <boost/asio/buffer.hpp>

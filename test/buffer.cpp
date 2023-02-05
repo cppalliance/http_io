@@ -7,9 +7,8 @@
 // Official repository: https://github.com/vinniefalco/http_io
 //
 
-// Test that header file is self-contained.
-//#include <boost/buffers/const_buffer.hpp>
-
+#include <boost/buffers/const_buffer.hpp>
+#include <boost/buffers/mutable_buffer.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/static_assert.hpp>
 
@@ -18,22 +17,18 @@
 namespace boost {
 namespace http_io {
 
-struct buffers_test
+BOOST_STATIC_ASSERT(
+    std::is_constructible<
+        asio::const_buffer,
+        buffers::const_buffer>::value);
+
+BOOST_STATIC_ASSERT(
+    std::is_constructible<
+        asio::mutable_buffer,
+        buffers::mutable_buffer>::value);
+
+struct buffer_test
 {
-#if 0
-    using D = decltype(asio::dynamic_buffer(
-        std::declval<std::string&>()));
-    using CB = D::const_buffers_type;
-    using MB = D::mutable_buffers_type;
-
-    BOOST_STATIC_ASSERT(
-        http_proto::is_const_buffers<CB>::value);
-    BOOST_STATIC_ASSERT(
-        http_proto::is_const_buffers<MB>::value);
-    BOOST_STATIC_ASSERT(
-        http_proto::is_mutable_buffers<MB>::value);
-#endif
-
     void
     run()
     {
@@ -41,8 +36,8 @@ struct buffers_test
 };
 
 TEST_SUITE(
-    buffers_test,
-    "boost.http_io.buffers");
+    buffer_test,
+    "boost.http_io.buffer");
 
 } // http_io
 } // boost
