@@ -275,11 +275,11 @@ public:
     worker(worker const&) = delete;
 
     worker(
+        proto::context& ctx,
         std::string const& doc_root,
-        asio::basic_socket_acceptor<tcp, Executor>& a,
-        proto::request_parser::config const& cfg)
+        asio::basic_socket_acceptor<tcp, Executor>& a)
         : doc_root_(doc_root)
-        , pr_(65536, cfg)
+        , pr_(ctx)
         , sr_(65536)
         , a_(a)
         , s_(a_.get_executor())
@@ -452,12 +452,12 @@ int main(int argc, char* argv[])
                 ioc.stop();
             });
 
-        proto::request_parser::config cfg;
+        proto::context ctx;
         std::vector<worker<executor_type>> v;
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
         {
-            v.emplace_back( doc_root, a, cfg );
+            v.emplace_back( ctx, doc_root, a );
             v.back().run();
         }
         ioc.run();
