@@ -32,6 +32,9 @@ if(BOOST_HTTP_IO_IS_ROOT)
     set(CMAKE_FOLDER Dependencies)
     add_subdirectory(../.. Dependencies/boost EXCLUDE_FROM_ALL)
     unset(CMAKE_FOLDER)
+    set(BOOST_HTTP_IO_BUILD_EXAMPLES ON)
+else()
+    set(BOOST_HTTP_IO_BUILD_EXAMPLES OFF)
 endif()
 
 function(boost_http_io_setup_properties target)
@@ -76,6 +79,11 @@ add_library(boost_http_io ${BOOST_HTTP_IO_HEADERS} ${BOOST_HTTP_IO_SOURCES})
 add_library(Boost::http_io ALIAS boost_http_io)
 boost_http_io_setup_properties(boost_http_io)
 
+target_compile_definitions(boost_http_io
+  PUBLIC
+  BOOST_HTTP_IO_NO_LIB
+)
+
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(boost_http_io PUBLIC BOOST_HTTP_IO_DYN_LINK=1)
 else()
@@ -86,4 +94,6 @@ if(BOOST_HTTP_IO_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
-add_subdirectory (example)
+if(BOOST_HTTP_IO_BUILD_EXAMPLES)
+    add_subdirectory (example)
+endif()
