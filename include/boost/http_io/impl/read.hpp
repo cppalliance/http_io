@@ -158,8 +158,7 @@ public:
                     __FILE__, __LINE__,
                     "Stream::async_read_some"));
                 s_.async_read_some(
-                    read_buffers(
-                        pr_.prepare()),
+                    pr_.prepare(),
                     std::move(self));
             }
             pr_.commit(bytes_transferred);

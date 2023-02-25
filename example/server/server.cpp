@@ -453,6 +453,9 @@ int main(int argc, char* argv[])
             });
 
         proto::context ctx;
+        proto::request_parser::config cfg;
+        proto::install_parser_service(ctx, cfg);
+
         std::vector<worker<executor_type>> v;
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
