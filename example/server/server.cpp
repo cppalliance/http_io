@@ -11,32 +11,35 @@
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
 #include <boost/url.hpp>
+#include <functional>
 #include <iostream>
 #include <vector>
 
-//#define LOGGING
+#define LOGGING
 
 namespace asio = boost::asio;
 namespace io = boost::http_io;
-namespace proto = boost::http_proto;
 namespace urls = boost::urls;
 namespace grammar = urls::grammar;
+namespace http_proto = boost::http_proto;
+namespace sys = boost::system;
 using tcp = boost::asio::ip::tcp;
+using namespace std::placeholders;
 
 // Return a reasonable mime type based on the extension of a file.
-proto::string_view
+http_proto::string_view
 get_extension(
-    proto::string_view path) noexcept
+    http_proto::string_view path) noexcept
 {
     auto const pos = path.rfind(".");
-    if(pos == proto::string_view::npos)
-        return proto::string_view();
+    if(pos == http_proto::string_view::npos)
+        return http_proto::string_view();
     return path.substr(pos);
 }
 
-proto::string_view
+http_proto::string_view
 mime_type(
-    proto::string_view path)
+    http_proto::string_view path)
 {
     using grammar::ci_is_equal;
     auto ext = get_extension(path);
@@ -69,8 +72,8 @@ mime_type(
 void
 path_cat(
     std::string& result,
-    proto::string_view base,
-    proto::string_view path)
+    http_proto::string_view base,
+    http_proto::string_view path)
 {
     if(base.empty())
     {
@@ -103,16 +106,16 @@ class file_handler
 
 public:
     file_handler(
-        proto::string_view doc_root)
+        http_proto::string_view doc_root)
         : doc_root_(doc_root)
     {
     }
 
     void
     operator()(
-        proto::request_view const& req,
-        proto::response& res,
-        proto::serializer& sr) const
+        http_proto::request_view const& req,
+        http_proto::response& res,
+        http_proto::serializer& sr) const
     {
         (void)req;
         (void)res;
@@ -126,14 +129,14 @@ private:
 
 void
 make_error_response(
-    proto::status code,
-    proto::request_view const& req,
-    proto::response& res,
-    proto::serializer& sr)
+    http_proto::status code,
+    http_proto::request_view const& req,
+    http_proto::response& res,
+    http_proto::serializer& sr)
 {
     auto rv = urls::parse_authority(
-        req.value_or(proto::field::host, ""));
-    proto::string_view host;
+        req.value_or(http_proto::field::host, ""));
+    http_proto::string_view host;
     if(rv.has_value())
         host = rv->buffer();
     else
@@ -145,15 +148,15 @@ make_error_response(
     s += "<title>";
         s += std::to_string(static_cast<
             std::underlying_type<
-                proto::status>::type>(code));
+                http_proto::status>::type>(code));
         s += " ";
-        s += proto::obsolete_reason(code);
+        s += http_proto::obsolete_reason(code);
         s += "</title>\n";
     s += "</head><body>\n";
     s += "<h1>";
-        s += proto::obsolete_reason(code);
+        s += http_proto::obsolete_reason(code);
         s += "</h1>\n";
-    if(code == proto::status::not_found)
+    if(code == http_proto::status::not_found)
     {
         s += "<p>The requested URL ";
         s += req.target_text();
@@ -170,16 +173,16 @@ make_error_response(
     res.set_start_line(code, res.version());
     res.set_keep_alive(req.keep_alive());
     res.set_payload_size(s.size());
-    res.append(proto::field::content_type,
+    res.append(http_proto::field::content_type,
         "text/html; charset=iso-8859-1");
-    res.append(proto::field::date,
+    res.append(http_proto::field::date,
         "Mon, 12 Dec 2022 03:26:32 GMT");
-    res.append(proto::field::server,
+    res.append(http_proto::field::server,
         "Boost.Http.IO/1.0b (Win10)");
 
     sr.start(
         res,
-        proto::string_body(
+        http_proto::string_body(
             std::move(s)));
 }
 
@@ -187,10 +190,10 @@ make_error_response(
 
 void
 handle_request(
-    proto::string_view doc_root,
-    proto::request_view const& req,
-    proto::response& res,
-    proto::serializer& sr)
+    http_proto::string_view doc_root,
+    http_proto::request_view const& req,
+    http_proto::response& res,
+    http_proto::serializer& sr)
 {
 #if 0
     // Returns a server error response
@@ -210,9 +213,9 @@ handle_request(
     // Request path must be absolute and not contain "..".
     if( req.target_text().empty() ||
         req.target_text()[0] != '/' ||
-        req.target_text().find("..") != proto::string_view::npos)
+        req.target_text().find("..") != http_proto::string_view::npos)
         return make_error_response(
-            proto::status::bad_request, req, res, sr);
+            http_proto::status::bad_request, req, res, sr);
 
     // Build the path to the requested file
     std::string path;
@@ -221,51 +224,51 @@ handle_request(
         path.append("index.html");
 
     // Attempt to open the file
-    proto::error_code ec;
-    proto::file f;
+    http_proto::error_code ec;
+    http_proto::file f;
     std::uint64_t size = 0;
-    f.open(path.c_str(), proto::file_mode::scan, ec);
+    f.open(path.c_str(), http_proto::file_mode::scan, ec);
     if(! ec.failed())
         size = f.size(ec);
     if(! ec.failed())
     {
         res.set_start_line(
-            proto::status::ok,
+            http_proto::status::ok,
             req.version());
-        res.set(proto::field::server, "Boost");
+        res.set(http_proto::field::server, "Boost");
         res.set_keep_alive(req.keep_alive());
         res.set_payload_size(size);
 
         auto mt = mime_type(get_extension(path));
         res.append(
-            proto::field::content_type, mt);
+            http_proto::field::content_type, mt);
 
         sr.start(
             res,
-            proto::file_body(
+            http_proto::file_body(
                 std::move(f), size));
         return;
     }
 
     // ec.message()?
     return make_error_response(
-        proto::status::internal_server_error,
+        http_proto::status::internal_server_error,
             req, res, sr);
 }
 
 //------------------------------------------------
 
 BOOST_STATIC_ASSERT(
-    std::is_move_constructible<proto::serializer>::value);
+    std::is_move_constructible<http_proto::serializer>::value);
 
 template< class Executor >
 class worker
 {
     // order of destruction matters here
     std::string const& doc_root_;
-    proto::request_parser pr_;
-    proto::response res_;
-    proto::serializer sr_;
+    http_proto::request_parser pr_;
+    http_proto::response res_;
+    http_proto::serializer sr_;
     asio::basic_socket_acceptor<tcp, Executor>& a_;
     asio::basic_stream_socket<tcp, Executor> s_;
     int id_ = 0;
@@ -275,7 +278,7 @@ public:
     worker(worker const&) = delete;
 
     worker(
-        proto::context& ctx,
+        http_proto::context& ctx,
         std::string const& doc_root,
         asio::basic_socket_acceptor<tcp, Executor>& a)
         : doc_root_(doc_root)
@@ -299,6 +302,28 @@ public:
 
 private:
     void
+    fail(
+        std::string what,
+        sys::error_code ec)
+    {
+        if( ec == asio::error::operation_aborted )
+            return;
+
+        if( ec == asio::error::eof )
+        {
+            s_.shutdown(
+                asio::socket_base::shutdown_send, ec);
+            return;
+        }
+
+    #ifdef LOGGING
+        std::cerr <<
+            what << "[" << id_ << "]: " <<
+            ec.message() << "\n";
+    #endif
+    }
+
+    void
     accept()
     {
         // Clean up any previous connection.
@@ -311,67 +336,63 @@ private:
             {
                 if( ec.failed() )
                 {
-                #ifdef LOGGING
-                    std::cerr <<
-                        "async_accept[" << id_ << "]: " <<
-                        ec.message() << "\n";
-                #endif
-
-                    if( ec != asio::error::operation_aborted )
-                        return accept();
-                    return;
+                    fail("async_accept", ec);
+                    if( ec == asio::error::operation_aborted )
+                        return;
+                    return accept();
                 }
 
                 // Request must be fully processed within 60 seconds.
                 //request_deadline_.expires_after(
                     //std::chrono::seconds(60));
 
-                read();
+                do_read();
             });
     }
 
-    // read header
     void
-    read()
+    do_read()
     {
         pr_.start();
 
-        io::async_read( s_, pr_,
-            [this](
-                io::error_code ec,
-                std::size_t n)
-            {
-                (void)n;
-
-                if( ec.failed() )
-                {
-                #ifdef LOGGING
-                    std::cerr <<
-                        "async_read[" << id_ << "]: " <<
-                        ec.message() << "\n";
-                #endif
-
-                    if( ec == asio::error::operation_aborted )
-                        return;
-                    if( ec == asio::error::eof )
-                    {
-                        s_.shutdown(
-                            asio::socket_base::shutdown_send, ec);
-                    }
-                    else
-                    {
-                        // log << ec.message();
-                    }
-                    return accept();
-                }
-
-                write();
-            });
+        io::async_read_header(s_, pr_, std::bind(
+            &worker::on_read_header, this, _1, _2));
     }
 
     void
-    write()
+    on_read_header(
+        sys::error_code ec,
+        std::size_t bytes_transferred)
     {
+        (void)bytes_transferred;
+
+        if(ec.failed())
+        {
+            fail("async_read_header", ec);
+            if(ec == asio::error::operation_aborted)
+                return;
+            return accept();
+        }
+
+        io::async_read(s_, pr_, std::bind(
+            &worker::on_read_body, this, _1, _2));
+    }
+
+    void
+    on_read_body(
+        sys::error_code ec,
+        std::size_t bytes_transferred)
+    {
+        (void)bytes_transferred;
+
+        if( ec.failed() )
+        {
+            fail("async_read", ec);
+            if( ec == asio::error::operation_aborted )
+                return;
+            return accept();
+        }
+
         res_.clear();
 
         handle_request(
@@ -387,28 +408,26 @@ private:
             "--------------------------------------------------\n";
     #endif
 
-        io::async_write( s_, sr_,
-            [this](
-                io::error_code const& ec,
-                std::size_t n)
-            {
-                (void)n;
+        io::async_write(s_, sr_, std::bind(
+            &worker::on_write, this, _1, _2));
+    }
 
-                if( ec.failed() )
-                {
-                #ifdef LOGGING
-                    std::cerr <<
-                        "async_write[" << id_ << "]: " <<
-                        ec.message() << "\n";
-                #endif
+    void
+    on_write(
+        sys::error_code ec,
+        std::size_t bytes_transferred)
+    {
+        (void)bytes_transferred;
 
-                    if( ec != asio::error::operation_aborted )
-                        return accept();
-                    return;
-                }
+        if( ec.failed() )
+        {
+            fail("async_write", ec);
+            if( ec == asio::error::operation_aborted )
+                return;
+            return accept();
+        }
 
-                read();
-            });
+        do_read();
     }
 };
 
@@ -444,7 +463,7 @@ int main(int argc, char* argv[])
         // Capture SIGINT and SIGTERM to perform a clean shutdown
         asio::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait(
-            [&](proto::error_code const&, int)
+            [&](http_proto::error_code const&, int)
             {
                 // Stop the `io_context`. This will cause `run()`
                 // to return immediately, eventually destroying the
@@ -452,9 +471,9 @@ int main(int argc, char* argv[])
                 ioc.stop();
             });
 
-        proto::context ctx;
-        proto::request_parser::config cfg;
-        proto::install_parser_service(ctx, cfg);
+        http_proto::context ctx;
+        http_proto::request_parser::config cfg;
+        http_proto::install_parser_service(ctx, cfg);
 
         std::vector<worker<executor_type>> v;
         v.reserve( num_workers );

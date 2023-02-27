@@ -21,6 +21,8 @@ in a translation unit of the program.
 #define BOOST_HTTP_IO_SOURCE
 #endif
 
+#include <boost/http_io/detail/impl/except.ipp>
+
 // We include this in case someone is
 // using src.hpp as their main header file
 #include <boost/http_io.hpp>

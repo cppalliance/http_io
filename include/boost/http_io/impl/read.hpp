@@ -10,194 +10,118 @@
 #ifndef BOOST_HTTP_IO_IMPL_READ_HPP
 #define BOOST_HTTP_IO_IMPL_READ_HPP
 
+#include <boost/http_io/detail/except.hpp>
 #include <boost/http_proto/error.hpp>
 #include <boost/http_proto/parser.hpp>
-#include <boost/asio/buffer.hpp>
+#include <boost/asio/append.hpp>
 #include <boost/asio/compose.hpp>
 #include <boost/asio/coroutine.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/assert.hpp>
+#include <type_traits>
 
 namespace boost {
 namespace http_io {
 
 namespace detail {
 
-class read_buffers
-{
-    http_proto::parser::mutable_buffers_type b_;
-
-public:
-    class iterator;
-
-    explicit
-    read_buffers(
-        http_proto::parser::mutable_buffers_type b) noexcept
-        : b_(b)
-    {
-    }
-
-    iterator begin() const noexcept;
-    iterator end() const noexcept;
-};
-
-class read_buffers::iterator
-{
-    using buffers_type =
-        http_proto::parser::mutable_buffers_type;
-    using iter_type = buffers_type::const_iterator;
-
-    iter_type it_{};
-
-    friend class read_buffers;
-
-    iterator(iter_type it)
-        : it_(it)
-    {
-    }
-
-public:
-    using value_type = asio::mutable_buffer;
-    using reference = value_type;
-    using pointer = value_type const*;
-    using difference_type = std::ptrdiff_t;
-    using iterator_category =
-        std::forward_iterator_tag;
-
-    iterator() = default;
-    iterator(
-        iterator const&) = default;
-    iterator& operator=(
-        iterator const&) = default;
-
-    asio::mutable_buffer
-    operator*() const noexcept
-    {
-        auto const mb(*it_);
-        return { mb.data(), mb.size() };
-    }
-
-    bool
-    operator==(
-        iterator const& other) const noexcept
-    {
-        return it_ == other.it_;
-    }
-
-    bool
-    operator!=(
-        iterator const& other) const noexcept
-    {
-        return it_ != other.it_;
-    }
-
-    iterator&
-    operator++() noexcept
-    {
-        ++it_;
-        return *this;
-    }
-
-    iterator
-    operator++(int) noexcept
-    {
-        auto temp = *this;
-        ++(*this);
-        return temp;
-    }
-};
-
-inline
-auto
-read_buffers::
-begin() const noexcept ->
-    iterator
-{
-    return iterator(b_.begin());
-}
-
-inline
-auto
-read_buffers::
-end() const noexcept ->
-    iterator
-{
-    return iterator(b_.end());
-}
-
-//------------------------------------------------
-
-template<class Stream>
-class read_some_op
+template<class AsyncStream>
+class read_header_op
     : public asio::coroutine
 {
-    Stream& s_;
+    AsyncStream& stream_;
     http_proto::parser& pr_;
+    std::size_t total_bytes_ = 0;
 
 public:
-    read_some_op(
-        Stream& s,
+    read_header_op(
+        AsyncStream& s,
         http_proto::parser& pr) noexcept
-        : s_(s)
+        : stream_(s)
         , pr_(pr)
     {
-        BOOST_ASSERT(! pr_.is_complete());
     }
 
     template<class Self>
     void
     operator()(
         Self& self,
-        error_code ec = {},
+        system::error_code ec = {},
         std::size_t bytes_transferred = 0)
     {
         BOOST_ASIO_CORO_REENTER(*this)
         {
-            BOOST_ASIO_CORO_YIELD
+            if(pr_.got_header())
             {
-                BOOST_ASIO_HANDLER_LOCATION((
-                    __FILE__, __LINE__,
-                    "Stream::async_read_some"));
-                s_.async_read_some(
-                    pr_.prepare(),
-                    std::move(self));
+                BOOST_ASIO_CORO_YIELD
+                {
+                    BOOST_ASIO_HANDLER_LOCATION((
+                        __FILE__, __LINE__,
+                        "post"));
+                    asio::post(
+                        stream_.get_executor(),
+                        asio::append(
+                            std::move(self),
+                            ec,
+                            0));
+                }
+                goto upcall;
             }
-            pr_.commit(bytes_transferred);
-
-            if(ec == asio::error::eof)
+            for(;;)
             {
-                BOOST_ASSERT(
-                    bytes_transferred == 0);
-                pr_.commit_eof();
-                ec = {};
-            }
-            if(! ec.failed())
-            {
+                BOOST_ASIO_CORO_YIELD
+                {
+                    BOOST_ASIO_HANDLER_LOCATION((
+                        __FILE__, __LINE__,
+                        "async_read_some"));
+                    stream_.async_read_some(
+                        pr_.prepare(),
+                        std::move(self));
+                }
+                pr_.commit(bytes_transferred);
+                total_bytes_ += bytes_transferred;
+                if(ec == asio::error::eof)
+                {
+                    BOOST_ASSERT(
+                        bytes_transferred == 0);
+                    pr_.commit_eof();
+                    ec = {};
+                }
+                else if(ec.failed())
+                {
+                    goto upcall;
+                }
                 pr_.parse(ec);
+                if(ec != http_proto::condition::need_more_input)
+                    break;
             }
 
-            self.complete(ec, bytes_transferred);
+        upcall:
+            self.complete(ec, total_bytes_);
         }
     }
 };
 
 //------------------------------------------------
 
-template<class Stream>
-class read_op
+template<class AsyncStream>
+class read_body_op
     : public asio::coroutine
 {
-    Stream& s_;
+    AsyncStream& stream_;
     http_proto::parser& pr_;
-    std::size_t n_ = 0;
+    std::size_t total_bytes_ = 0;
+    bool some_;
 
 public:
-    read_op(
-        Stream& s,
-        http_proto::parser& pr) noexcept
-        : s_(s)
+    read_body_op(
+        AsyncStream& s,
+        http_proto::parser& pr,
+        bool some)
+        : stream_(s)
         , pr_(pr)
+        , some_(some)
     {
-        BOOST_ASSERT(! pr_.is_complete());
     }
 
     template<class Self>
@@ -209,23 +133,69 @@ public:
     {
         BOOST_ASIO_CORO_REENTER(*this)
         {
-            do
+            if(pr_.is_complete())
             {
                 BOOST_ASIO_CORO_YIELD
                 {
                     BOOST_ASIO_HANDLER_LOCATION((
                         __FILE__, __LINE__,
-                        "http_io::async_read_some"));
-                    http_io::async_read_some(
-                        s_, pr_, std::move(self));
+                        "post"));
+                    asio::post(
+                        stream_.get_executor(),
+                        asio::append(
+                            std::move(self),
+                            ec,
+                            0));
                 }
-                n_ += bytes_transferred;
-                if(ec.failed())
-                    break;
+                // If the body was just set,
+                // this will transfer the
+                // body data. Otherwise,
+                // it is a no-op.
+                pr_.parse(ec);
+                goto upcall;
             }
-            while(! pr_.is_complete());
+            for(;;)
+            {
+                BOOST_ASIO_CORO_YIELD
+                {
+                    BOOST_ASIO_HANDLER_LOCATION((
+                        __FILE__, __LINE__,
+                        "async_read_some"));
+                    stream_.async_read_some(
+                        pr_.prepare(),
+                        std::move(self));
+                }
+                pr_.commit(bytes_transferred);
+                total_bytes_ += bytes_transferred;
+                if(ec == asio::error::eof)
+                {
+                    BOOST_ASSERT(
+                        bytes_transferred == 0);
+                    pr_.commit_eof();
+                    ec = {};
+                }
+                else if(ec.failed())
+                {
+                    goto upcall;
+                }
+                pr_.parse(ec);
+                if(! ec.failed())
+                {
+                    BOOST_ASSERT(
+                        pr_.is_complete());
+                    break;
+                }
+                if(ec != http_proto::condition::need_more_input)
+                    break;
+                if(some_)
+                {
+                    ec = {};
+                    break;
+                }
+            }
 
-            self.complete(ec, n_);
+        upcall:
+            self.complete(ec, total_bytes_);
         }
     }
 };
@@ -237,18 +207,18 @@ public:
 template<
     class AsyncReadStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
-    void (error_code, std::size_t))
-async_read_some(
+    void (system::error_code, std::size_t))
+async_read_header(
     AsyncReadStream& s,
-    boost::http_proto::parser& pr,
+    http_proto::parser& pr,
     CompletionToken&& token)
 {
     return asio::async_compose<
         CompletionToken,
-        void(error_code, std::size_t)>(
-            detail::read_some_op<
+        void(system::error_code, std::size_t)>(
+            detail::read_header_op<
                 AsyncReadStream>{s, pr},
             token,
             s);
@@ -257,19 +227,47 @@ async_read_some(
 template<
     class AsyncReadStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
-    void (error_code, std::size_t))
-async_read(
+    void (system::error_code, std::size_t))
+async_read_some(
     AsyncReadStream& s,
-    boost::http_proto::parser& pr,
+    http_proto::parser& pr,
     CompletionToken&& token)
 {
+    // header must be read first!
+    if(! pr.got_header())
+        detail::throw_logic_error();
+
     return asio::async_compose<
         CompletionToken,
-        void(error_code, std::size_t)>(
-            detail::read_op<
-                AsyncReadStream>{s, pr},
+        void(system::error_code, std::size_t)>(
+            detail::read_body_op<
+                AsyncReadStream>{s, pr, true},
+            token,
+            s);
+}
+
+template<
+    class AsyncReadStream,
+    BOOST_ASIO_COMPLETION_TOKEN_FOR(
+        void(system::error_code, std::size_t)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
+    void (system::error_code, std::size_t))
+async_read(
+    AsyncReadStream& s,
+    http_proto::parser& pr,
+    CompletionToken&& token)
+{
+    // header must be read first!
+    if(! pr.got_header())
+        detail::throw_logic_error();
+
+    return asio::async_compose<
+        CompletionToken,
+        void(system::error_code, std::size_t)>(
+            detail::read_body_op<
+                AsyncReadStream>{s, pr, false},
             token,
             s);
 }
