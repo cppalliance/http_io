@@ -11,37 +11,40 @@
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
 #include <boost/url.hpp>
+#include <boost/core/detail/string_view.hpp>
 #include <functional>
 #include <iostream>
 #include <vector>
 
 #define LOGGING
 
-namespace asio = boost::asio;
+namespace server {
+
 namespace io = boost::http_io;
 namespace urls = boost::urls;
-namespace grammar = urls::grammar;
+namespace asio = boost::asio;
+namespace core = boost::core;
+namespace system = boost::system;
 namespace http_proto = boost::http_proto;
-namespace sys = boost::system;
-using tcp = boost::asio::ip::tcp;
 using namespace std::placeholders;
+using tcp = boost::asio::ip::tcp;
 
 // Return a reasonable mime type based on the extension of a file.
-http_proto::string_view
+core::string_view
 get_extension(
-    http_proto::string_view path) noexcept
+    core::string_view path) noexcept
 {
     auto const pos = path.rfind(".");
-    if(pos == http_proto::string_view::npos)
-        return http_proto::string_view();
+    if(pos == core::string_view::npos)
+        return core::string_view();
     return path.substr(pos);
 }
 
-http_proto::string_view
+core::string_view
 mime_type(
-    http_proto::string_view path)
+    core::string_view path)
 {
-    using grammar::ci_is_equal;
+    using urls::grammar::ci_is_equal;
     auto ext = get_extension(path);
     if(ci_is_equal(ext, ".htm"))  return "text/html";
     if(ci_is_equal(ext, ".html")) return "text/html";
@@ -72,8 +75,8 @@ mime_type(
 void
 path_cat(
     std::string& result,
-    http_proto::string_view base,
-    http_proto::string_view path)
+    core::string_view base,
+    core::string_view path)
 {
     if(base.empty())
     {
@@ -106,7 +109,7 @@ class file_handler
 
 public:
     file_handler(
-        http_proto::string_view doc_root)
+        core::string_view doc_root)
         : doc_root_(doc_root)
     {
     }
@@ -136,7 +139,7 @@ make_error_response(
 {
     auto rv = urls::parse_authority(
         req.value_or(http_proto::field::host, ""));
-    http_proto::string_view host;
+    core::string_view host;
     if(rv.has_value())
         host = rv->buffer();
     else
@@ -190,7 +193,7 @@ make_error_response(
 
 void
 handle_request(
-    http_proto::string_view doc_root,
+    core::string_view doc_root,
     http_proto::request_view const& req,
     http_proto::response& res,
     http_proto::serializer& sr)
@@ -213,7 +216,7 @@ handle_request(
     // Request path must be absolute and not contain "..".
     if( req.target_text().empty() ||
         req.target_text()[0] != '/' ||
-        req.target_text().find("..") != http_proto::string_view::npos)
+        req.target_text().find("..") != core::string_view::npos)
         return make_error_response(
             http_proto::status::bad_request, req, res, sr);
 
@@ -224,7 +227,7 @@ handle_request(
         path.append("index.html");
 
     // Attempt to open the file
-    http_proto::error_code ec;
+    system::error_code ec;
     http_proto::file f;
     std::uint64_t size = 0;
     f.open(path.c_str(), http_proto::file_mode::scan, ec);
@@ -280,7 +283,8 @@ public:
     worker(
         http_proto::context& ctx,
         std::string const& doc_root,
-        asio::basic_socket_acceptor<tcp, Executor>& a)
+        asio::basic_socket_acceptor<
+            tcp, Executor>& a)
         : doc_root_(doc_root)
         , pr_(ctx)
         , sr_(65536)
@@ -304,7 +308,7 @@ private:
     void
     fail(
         std::string what,
-        sys::error_code ec)
+        system::error_code ec)
     {
         if( ec == asio::error::operation_aborted )
             return;
@@ -361,7 +365,7 @@ private:
 
     void
     on_read_header(
-        sys::error_code ec,
+        system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -380,7 +384,7 @@ private:
 
     void
     on_read_body(
-        sys::error_code ec,
+        system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -414,7 +418,7 @@ private:
 
     void
     on_write(
-        sys::error_code ec,
+        system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -463,7 +467,7 @@ int main(int argc, char* argv[])
         // Capture SIGINT and SIGTERM to perform a clean shutdown
         asio::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait(
-            [&](http_proto::error_code const&, int)
+            [&](system::error_code const&, int)
             {
                 // Stop the `io_context`. This will cause `run()`
                 // to return immediately, eventually destroying the
@@ -490,4 +494,11 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }    
     return EXIT_SUCCESS;
+}
+
+} // server
+
+int main(int argc, char* argv[])
+{
+    return server::main(argc, argv);
 }
