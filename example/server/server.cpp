@@ -367,16 +367,10 @@ public:
         ++n_idle_;
     }
 
-    void
+    bool
     on_worker_busy()
     {
-        --n_idle_;
-    }
-
-    bool
-    is_server_available()
-    {
-        return n_idle_ == 0;
+        return --n_idle_ == 0;
     }
 };
 
@@ -394,6 +388,7 @@ class group<Executor>::
     http_proto::response res_;
     http_proto::serializer sr_;
     std::size_t id_ = 0;
+    bool is_service_unavailable_;
 
 public:
     worker(worker&&) = default;
@@ -456,7 +451,7 @@ private:
     void
     on_accept(system::error_code ec)
     {
-        grp_.on_worker_busy();
+        is_service_unavailable_ = grp_.on_worker_busy();
         if( ec.failed() )
         {
             fail("async_accept", ec);
@@ -517,11 +512,11 @@ private:
 
         res_.clear();
 
-        if(! grp_.is_server_available())
+        if(is_service_unavailable_)
         {
             //service_unavailable(pr_.get(), res_, sr_);
             sock_.close();
-            do_accept();
+            return do_accept();
         }
         else
         {
@@ -585,7 +580,7 @@ int main(int argc, char* argv[])
         auto const addr = asio::ip::make_address(argv[1]);
         unsigned short const port = static_cast<unsigned short>(std::atoi(argv[2]));
         std::string const doc_root = argv[3];
-        int const num_workers = std::atoi(argv[4]);
+        std::size_t num_workers = std::atoi(argv[4]);
 
         using executor_type = asio::io_context::executor_type;
 
@@ -611,10 +606,12 @@ int main(int argc, char* argv[])
         }
         group< executor_type > grp( ioc, { addr, port }, ctx );
 
-        std::vector<
-            group<executor_type>::worker> v;
+        std::vector< group< executor_type >::worker > v;
+
+        // 1 extra worker to refuse connections when full
+        ++num_workers;
         v.reserve( num_workers );
-        for(auto i = num_workers; i--;)
+        for(auto i = num_workers ; i--;)
         {
             v.emplace_back( grp, doc_root );
             v.back().run();
