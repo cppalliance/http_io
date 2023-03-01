@@ -16,7 +16,7 @@
 #include <iostream>
 #include <vector>
 
-#define LOGGING
+//#define LOGGING
 
 namespace server {
 
@@ -261,47 +261,160 @@ handle_request(
 
 //------------------------------------------------
 
+void
+service_unavailable(
+    http_proto::request_view const& req,
+    http_proto::response& res,
+    http_proto::serializer& sr)
+{
+    auto const code = http_proto::status::service_unavailable;
+    auto rv = urls::parse_authority( req.value_or( http_proto::field::host, "" ) );
+    core::string_view host;
+    if(rv.has_value())
+        host = rv->buffer();
+    else
+        host = "";
+
+    std::string s;
+    s  = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n";
+    s += "<html><head>\n";
+    s += "<title>";
+        s += std::to_string(static_cast<
+            std::underlying_type<
+                http_proto::status>::type>(code));
+        s += " ";
+        s += http_proto::obsolete_reason(code);
+        s += "</title>\n";
+    s += "</head><body>\n";
+    s += "<h1>";
+        s += http_proto::obsolete_reason(code);
+        s += "</h1>\n";
+    s += "<hr>\n";
+    s += "<address>Boost.Http.IO/1.0b (Win10) Server at ";
+        s += rv->host_address();
+        s += " Port ";
+        s += rv->port();
+        s += "</address>\n";
+    s += "</body></html>\n";
+
+    res.set_start_line(code, res.version());
+    res.set_keep_alive(false);
+    res.set_payload_size(s.size());
+    res.append(http_proto::field::content_type, "text/html; charset=iso-8859-1");
+    //res.append(http_proto::field::date, "Mon, 12 Dec 2022 03:26:32 GMT" );
+    res.append(http_proto::field::server, "BoostServerTech");
+
+    sr.start(
+        res,
+        http_proto::string_body(
+            std::move(s)));
+}
+
+//------------------------------------------------
+
 BOOST_STATIC_ASSERT(
     std::is_move_constructible<http_proto::serializer>::value);
 
 template< class Executor >
-class worker
+class group
+{
+public:
+    using listener_type = asio::basic_socket_acceptor< tcp, Executor >;
+    using socket_type = asio::basic_stream_socket< tcp, Executor >;
+
+private:
+    asio::io_context& ioc_;
+    listener_type listener_;
+    http_proto::context& ctx_;
+    std::size_t id_ = 0;
+    std::size_t n_idle_ = 0;
+
+public:
+    class worker;
+    class busy_signal;
+
+    group(
+        asio::io_context& ioc,
+        tcp::endpoint ep,
+        http_proto::context& ctx)
+        : ioc_(ioc)
+        , listener_(ioc, ep)
+        , ctx_(ctx)
+    {
+    }
+
+    std::size_t
+    next_worker_id() noexcept
+    {
+        return ++id_;
+    }
+
+    listener_type&
+    listener() noexcept
+    {
+        return listener_;
+    }
+
+    http_proto::context&
+    context() const noexcept
+    {
+        return ctx_;
+    }
+
+    void
+    on_worker_idle()
+    {
+        ++n_idle_;
+    }
+
+    void
+    on_worker_busy()
+    {
+        --n_idle_;
+    }
+
+    bool
+    is_server_available()
+    {
+        return n_idle_ == 0;
+    }
+};
+
+//-----------------------------------------------
+
+template< class Executor >
+class group<Executor>::
+    worker
 {
     // order of destruction matters here
+    group& grp_;
+    socket_type sock_;
     std::string const& doc_root_;
     http_proto::request_parser pr_;
     http_proto::response res_;
     http_proto::serializer sr_;
-    asio::basic_socket_acceptor<tcp, Executor>& a_;
-    asio::basic_stream_socket<tcp, Executor> s_;
-    int id_ = 0;
+    std::size_t id_ = 0;
 
 public:
     worker(worker&&) = default;
     worker(worker const&) = delete;
 
     worker(
-        http_proto::context& ctx,
-        std::string const& doc_root,
-        asio::basic_socket_acceptor<
-            tcp, Executor>& a)
-        : doc_root_(doc_root)
-        , pr_(ctx)
+        group& grp,
+        std::string const& doc_root)
+        : grp_(grp)
+        , sock_(grp_.listener().get_executor())
+        , doc_root_(doc_root)
+        , pr_(grp_.context())
         , sr_(65536)
-        , a_(a)
-        , s_(a_.get_executor())
-        , id_([]
-            {
-                static int id = 0;
-                return ++id;
-            }())
+        , id_(grp_.next_worker_id())
     {
     }
 
     void
     run()
     {
-        accept();
+        do_accept();
     }
 
 private:
@@ -315,7 +428,7 @@ private:
 
         if( ec == asio::error::eof )
         {
-            s_.shutdown(
+            sock_.shutdown(
                 asio::socket_base::shutdown_send, ec);
             return;
         }
@@ -328,30 +441,35 @@ private:
     }
 
     void
-    accept()
+    do_accept()
     {
         // Clean up any previous connection.
         io::error_code ec;
-        s_.close(ec);
+        sock_.close(ec);
         pr_.reset();
 
-        a_.async_accept( s_,
-            [this](io::error_code const& ec)
-            {
-                if( ec.failed() )
-                {
-                    fail("async_accept", ec);
-                    if( ec == asio::error::operation_aborted )
-                        return;
-                    return accept();
-                }
+        grp_.on_worker_idle();
+        grp_.listener().async_accept( sock_,
+            std::bind(&worker::on_accept, this, _1));
+    }
 
-                // Request must be fully processed within 60 seconds.
-                //request_deadline_.expires_after(
-                    //std::chrono::seconds(60));
+    void
+    on_accept(system::error_code ec)
+    {
+        grp_.on_worker_busy();
+        if( ec.failed() )
+        {
+            fail("async_accept", ec);
+            if( ec == asio::error::operation_aborted )
+                return;
+            return do_accept();
+        }
 
-                do_read();
-            });
+        // Request must be fully processed within 60 seconds.
+        //request_deadline_.expires_after(
+            //std::chrono::seconds(60));
+
+        do_read();
     }
 
     void
@@ -359,7 +477,7 @@ private:
     {
         pr_.start();
 
-        io::async_read_header(s_, pr_, std::bind(
+        io::async_read_header(sock_, pr_, std::bind(
             &worker::on_read_header, this, _1, _2));
     }
 
@@ -375,10 +493,10 @@ private:
             fail("async_read_header", ec);
             if(ec == asio::error::operation_aborted)
                 return;
-            return accept();
+            return do_accept();
         }
 
-        io::async_read(s_, pr_, std::bind(
+        io::async_read(sock_, pr_, std::bind(
             &worker::on_read_body, this, _1, _2));
     }
 
@@ -394,16 +512,25 @@ private:
             fail("async_read", ec);
             if( ec == asio::error::operation_aborted )
                 return;
-            return accept();
+            return do_accept();
         }
 
         res_.clear();
 
-        handle_request(
-            doc_root_,
-            pr_.get(),
-            res_,
-            sr_);
+        if(! grp_.is_server_available())
+        {
+            //service_unavailable(pr_.get(), res_, sr_);
+            sock_.close();
+            do_accept();
+        }
+        else
+        {
+            handle_request(
+                doc_root_,
+                pr_.get(),
+                res_,
+                sr_);
+        }
 
     #ifdef LOGGING
         std::cerr << 
@@ -412,7 +539,7 @@ private:
             "--------------------------------------------------\n";
     #endif
 
-        io::async_write(s_, sr_, std::bind(
+        io::async_write(sock_, sr_, std::bind(
             &worker::on_write, this, _1, _2));
     }
 
@@ -428,10 +555,13 @@ private:
             fail("async_write", ec);
             if( ec == asio::error::operation_aborted )
                 return;
-            return accept();
+            return do_accept();
         }
 
-        do_read();
+        if(res_.keep_alive())
+            return do_read();
+
+        do_accept();
     }
 };
 
@@ -460,7 +590,6 @@ int main(int argc, char* argv[])
         using executor_type = asio::io_context::executor_type;
 
         asio::io_context ioc( 1 );
-        asio::basic_socket_acceptor<tcp, executor_type> a( ioc, { addr, port } );
 
         file_handler fh(doc_root);
 
@@ -476,14 +605,18 @@ int main(int argc, char* argv[])
             });
 
         http_proto::context ctx;
-        http_proto::request_parser::config cfg;
-        http_proto::install_parser_service(ctx, cfg);
+        {
+            http_proto::request_parser::config cfg;
+            http_proto::install_parser_service(ctx, cfg);
+        }
+        group< executor_type > grp( ioc, { addr, port }, ctx );
 
-        std::vector<worker<executor_type>> v;
+        std::vector<
+            group<executor_type>::worker> v;
         v.reserve( num_workers );
         for(auto i = num_workers; i--;)
         {
-            v.emplace_back( ctx, doc_root, a );
+            v.emplace_back( grp, doc_root );
             v.back().run();
         }
         ioc.run();
