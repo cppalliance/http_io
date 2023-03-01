@@ -17,6 +17,7 @@ project
       $(c11-requires)
       #<library>/boost/filesystem//boost_filesystem/<warnings>off
       <library>/boost/http_proto//boost_http_proto
+      <library>/boost/http_io//boost_http_io
       [ ac.check-library /zlib//zlib : <library>/zlib//zlib : ]
       [ ac.check-library /boost/http_proto//boost_http_proto_zlib : <library>/boost/http_proto//boost_http_proto_zlib : ]
       <include>.

@@ -7,18 +7,20 @@
 # Official repository: https://github.com/CPPAlliance/http_io
 #
 
-source_group("" FILES
-    server.cpp
-    )
+set(PFILES
+    CMakeLists.txt
+    Jamfile
+    server.cpp)
 
-add_executable (server
-    server.cpp
-)
-target_compile_definitions(
-    server PRIVATE BOOST_ASIO_NO_DEPRECATED)
+source_group( TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES} )
 
-set_property(
-    TARGET server
-    PROPERTY FOLDER "examples")
+add_executable( http_io_server_example ${PFILES} )
 
-target_link_libraries(server Boost::http_io)
+target_compile_definitions( http_io_server_example
+    PRIVATE BOOST_ASIO_NO_DEPRECATED)
+
+set_property( TARGET http_io_server_example
+    PROPERTY FOLDER "examples" )
+
+target_link_libraries(http_io_server_example
+    Boost::http_io)
