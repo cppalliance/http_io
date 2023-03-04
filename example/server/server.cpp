@@ -15,6 +15,7 @@
 #include <functional>
 #include <iostream>
 #include <vector>
+#include "fixed_array.hpp"
 
 //#define LOGGING
 
@@ -28,6 +29,8 @@ namespace system = boost::system;
 namespace http_proto = boost::http_proto;
 using namespace std::placeholders;
 using tcp = boost::asio::ip::tcp;
+
+//-----------------------------------------------
 
 // Return a reasonable mime type based on the extension of a file.
 core::string_view
@@ -330,9 +333,6 @@ private:
     std::size_t n_idle_ = 0;
 
 public:
-    class worker;
-    class busy_signal;
-
     group(
         asio::io_context& ioc,
         tcp::endpoint ep,
@@ -344,7 +344,7 @@ public:
     }
 
     std::size_t
-    next_worker_id() noexcept
+    next_id() noexcept
     {
         return ++id_;
     }
@@ -377,12 +377,15 @@ public:
 //-----------------------------------------------
 
 template< class Executor >
-class group<Executor>::
-    worker
+class worker
 {
+public:
+    using group_type = group< Executor >;
+
+private:
     // order of destruction matters here
-    group& grp_;
-    socket_type sock_;
+    group_type& grp_;
+    typename group_type::socket_type sock_;
     std::string const& doc_root_;
     http_proto::request_parser pr_;
     http_proto::response res_;
@@ -391,18 +394,18 @@ class group<Executor>::
     bool is_service_unavailable_;
 
 public:
-    worker(worker&&) = default;
+    worker(worker&&) = delete;
     worker(worker const&) = delete;
 
     worker(
-        group& grp,
+        group_type& grp,
         std::string const& doc_root)
         : grp_(grp)
         , sock_(grp_.listener().get_executor())
         , doc_root_(doc_root)
         , pr_(grp_.context())
         , sr_(65536)
-        , id_(grp_.next_worker_id())
+        , id_(grp_.next_id())
     {
     }
 
@@ -514,9 +517,9 @@ private:
 
         if(is_service_unavailable_)
         {
-            //service_unavailable(pr_.get(), res_, sr_);
-            sock_.close();
-            return do_accept();
+            service_unavailable(pr_.get(), res_, sr_);
+            //sock_.close();
+            //return do_accept();
         }
         else
         {
@@ -606,16 +609,11 @@ int main(int argc, char* argv[])
         }
         group< executor_type > grp( ioc, { addr, port }, ctx );
 
-        std::vector< group< executor_type >::worker > v;
-
         // 1 extra worker to refuse connections when full
         ++num_workers;
-        v.reserve( num_workers );
-        for(auto i = num_workers ; i--;)
-        {
-            v.emplace_back( grp, doc_root );
-            v.back().run();
-        }
+        fixed_array< worker< executor_type > > wv( num_workers, grp, doc_root );
+        for(auto& w : wv)
+            w.run();
         ioc.run();
     }
     catch( std::exception const& e )
