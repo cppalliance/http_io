@@ -16,6 +16,9 @@ endif()
 
 project(boost_http_io VERSION "${BOOST_HTTP_IO_VERSION}" LANGUAGES CXX)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     include(CTest)
     option(BOOST_HTTP_IO_BUILD_TESTS "Build boost::http_io tests" ${BUILD_TESTING})
@@ -80,6 +83,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost PREFIX "" FILES ${BO
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "" FILES ${BOOST_HTTP_IO_SOURCES})
 
 add_library(boost_http_io ${BOOST_HTTP_IO_HEADERS} ${BOOST_HTTP_IO_SOURCES})
+target_link_libraries(boost_http_io PUBLIC Threads::Threads)
 add_library(Boost::http_io ALIAS boost_http_io)
 boost_http_io_setup_properties(boost_http_io)
 
