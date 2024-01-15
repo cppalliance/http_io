@@ -60,6 +60,10 @@ function(boost_http_io_setup_properties target)
             Boost::system
             Boost::url
     )
+
+    if(MINGW)
+      target_link_libraries(${target} PUBLIC ws2_32 wsock32)
+    endif()
 endfunction()
 
 file(GLOB_RECURSE BOOST_HTTP_IO_HEADERS $<$<VERSION_GREATER_EQUAL:${CMAKE_VERSION},3.12>:CONFIGURE_DEPENDS>
