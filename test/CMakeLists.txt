@@ -31,3 +31,5 @@ target_compile_definitions(boost_http_io_tests PRIVATE BOOST_ASIO_NO_DEPRECATED)
 target_link_libraries(boost_http_io_tests PRIVATE
     OpenSSL::SSL
     Boost::http_io)
+
+add_test(NAME boost_http_io_tests COMMAND boost_http_io_tests)
