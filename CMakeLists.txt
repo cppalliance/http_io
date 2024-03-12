@@ -75,12 +75,13 @@ file(GLOB_RECURSE BOOST_HTTP_IO_HEADERS $<$<VERSION_GREATER_EQUAL:${CMAKE_VERSIO
     include/boost/*.natvis
 )
 
-set(BOOST_HTTP_IO_SOURCES src/src.cpp)
+file(GLOB_RECURSE BOOST_HTTP_IO_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost PREFIX "" FILES ${BOOST_HTTP_IO_HEADERS})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "" FILES ${BOOST_HTTP_IO_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "http_io" FILES ${BOOST_HTTP_IO_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES Jamfile)
 
 add_library(boost_http_io ${BOOST_HTTP_IO_HEADERS} ${BOOST_HTTP_IO_SOURCES})
 target_link_libraries(boost_http_io PUBLIC Threads::Threads)
