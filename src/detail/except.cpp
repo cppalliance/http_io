@@ -7,9 +7,6 @@
 // Official repository: https://github.com/CPPAlliance/http_io
 //
 
-#ifndef BOOST_HTTP_IO_DETAIL_IMPL_EXCEPT_IPP
-#define BOOST_HTTP_IO_DETAIL_IMPL_EXCEPT_IPP
-
 #include <boost/http_io/detail/config.hpp>
 #include <boost/http_io/detail/except.hpp>
 #include <boost/throw_exception.hpp>
@@ -32,5 +29,3 @@ throw_logic_error(
 } // detail
 } // http_io
 } // boost
-
-#endif

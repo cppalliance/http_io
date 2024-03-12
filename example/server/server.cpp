@@ -31,6 +31,27 @@ using namespace std::placeholders;
 using tcp = boost::asio::ip::tcp;
 
 //-----------------------------------------------
+/*
+
+serializer
+
+    empty body:
+        sr.start( m );
+
+    buffer sequence body:
+        sr.start( m, bs );
+
+    pull-based source:
+        sr.start( m, src );
+
+    push-based stream:
+        auto strm = sr.start_stream( m );
+
+parser
+
+
+*/
+//-----------------------------------------------
 
 // Return a reasonable mime type based on the extension of a file.
 core::string_view
@@ -224,7 +245,7 @@ handle_request(
             http_proto::status::bad_request, req, res, sr);
 
     // Build the path to the requested file
-    std::string path;
+    std::string path; 
     path_cat(path, doc_root, req.target_text());
     if(req.target_text().back() == '/')
         path.append("index.html");
