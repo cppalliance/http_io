@@ -11,10 +11,10 @@
 #define BOOST_HTTP_IO_READ_HPP
 
 #include <boost/http_io/detail/config.hpp>
-#include <boost/http_io/error.hpp>
 #include <boost/http_proto/request_parser.hpp>
 #include <boost/http_proto/response_parser.hpp>
 #include <boost/asio/async_result.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/system/result.hpp>
 #include <cstdint>
 

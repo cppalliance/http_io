@@ -128,7 +128,7 @@ public:
     void
     operator()(
         Self& self,
-        error_code ec = {},
+        system::error_code ec = {},
         std::size_t bytes_transferred = 0)
     {
         BOOST_ASIO_CORO_REENTER(*this)

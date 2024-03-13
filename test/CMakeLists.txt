@@ -14,9 +14,8 @@ set(EXTRAFILES
 
 set(PFILES
     CMakeLists.txt
-    #Jamfile
+    Jamfile
     buffer.cpp
-    error.cpp
     read.cpp
     sandbox.cpp
     write.cpp

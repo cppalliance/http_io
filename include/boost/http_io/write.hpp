@@ -11,9 +11,9 @@
 #define BOOST_HTTP_IO_WRITE_HPP
 
 #include <boost/http_io/detail/config.hpp>
-#include <boost/http_io/error.hpp>
 #include <boost/http_proto/serializer.hpp>
 #include <boost/asio/async_result.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace boost {
 namespace http_io {
@@ -23,9 +23,9 @@ namespace http_io {
 template<
     class AsyncWriteStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
-    void (error_code, std::size_t))
+    void (system::error_code, std::size_t))
 async_write_some(
     AsyncWriteStream& dest,
     http_proto::serializer& sr,
@@ -36,9 +36,9 @@ async_write_some(
 template<
     class AsyncWriteStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
-    void (error_code, std::size_t))
+    void (system::error_code, std::size_t))
 async_write(
     AsyncWriteStream& dest,
     http_proto::serializer& sr,
@@ -52,9 +52,9 @@ template<
     class AsyncReadStream,
     class CompletionCondition,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
-    void (error_code, std::size_t))
+    void (system::error_code, std::size_t))
 async_relay_some(
     AsyncWriteStream& dest,
     AsyncReadStream& src,

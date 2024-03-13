@@ -22,7 +22,7 @@ project boost/http_io
 
 alias http_io_sources
     :
-    src.cpp
+    detail/except.cpp
     ;
 
 explicit http_io_sources ;
