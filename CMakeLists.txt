@@ -83,7 +83,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost PREFIX "" FILES ${BO
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "http_io" FILES ${BOOST_HTTP_IO_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES Jamfile)
 
-add_library(boost_http_io ${BOOST_HTTP_IO_HEADERS} ${BOOST_HTTP_IO_SOURCES})
+add_library(boost_http_io ${BOOST_HTTP_IO_HEADERS} ${BOOST_HTTP_IO_SOURCES} build/Jamfile)
 target_link_libraries(boost_http_io PUBLIC Threads::Threads)
 add_library(Boost::http_io ALIAS boost_http_io)
 boost_http_io_setup_properties(boost_http_io)

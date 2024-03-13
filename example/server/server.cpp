@@ -463,7 +463,7 @@ private:
     do_accept()
     {
         // Clean up any previous connection.
-        io::error_code ec;
+        system::error_code ec;
         sock_.close(ec);
         pr_.reset();
 

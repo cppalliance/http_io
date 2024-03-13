@@ -27,7 +27,6 @@ project
     ;
 
 local SOURCES =
-    error.cpp
     read.cpp
     sandbox.cpp
     write.cpp
