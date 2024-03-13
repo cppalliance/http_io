@@ -759,10 +759,10 @@ jobs:
           scan-modules-dir: http-io-root
           scan-modules-ignore: http_io
 
-      - name: Install zlib (Windows)
+      - name: Install packages (Windows)
         uses: alandefreitas/cpp-actions/package-install@v1.8.0
-        if: ${{ startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') }}
-        id: zlib-install
+        if: ${{ startsWith(matrix.runs-on, 'windows') }}
+        id: package-install-windows
         with:
           vcpkg: "zlib,openssl"
           vcpkg-dir: vcpkg-root
@@ -771,7 +771,7 @@ jobs:
       - name: Patch user-config.jam (Windows)
         id: patch-user-config
         shell: bash
-        if: ${{ startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') }}
+        if: ${{ startsWith(matrix.runs-on, 'windows') }}
         run: |
           set -xe
           home=$(pwd)
@@ -783,24 +783,12 @@ jobs:
           ls -lah "${home}/vcpkg-root/installed/${triplet}/lib"
 
           touch user-config.jam
-          echo "using zlib : : <include>\"${home}/vcpkg-root/installed/${triplet}/include\" <search>\"${home}/vcpkg-root/installed/${triplet}/lib\" : <address-model>${addrmdl} ;" | sed 's/\/d\//D:\//g' >> user-config.jam
+          echo "using zlib : : <include>\"${home}/vcpkg-root/installed/${triplet}/include\" <search>\"${home}/vcpkg-root/installed/${triplet}/lib\" <name>zlib : <address-model>${addrmdl} ;" | sed 's/\/d\//D:\//g' > user-config.jam
           echo "using openssl : : <include>\"${home}/vcpkg-root/installed/${triplet}/include\" <search>\"${home}/vcpkg-root/installed/${triplet}/lib\" <ssl-name>libssl <crypto-name>libcrypto : <address-model>${addrmdl} ;" | sed 's/\/d\//D:\//g' >> user-config.jam
           cat user-config.jam
 
           toolchain=$(echo "$GITHUB_WORKSPACE/vcpkg-root/scripts/buildsystems/vcpkg.cmake" | sed 's/\/d\//D:\//g' )
           echo "toolchain=${toolchain}" >> $GITHUB_OUTPUT
-
-      - name: Patch user-config.jam (Windows [MinGW])
-        id: patch-user-config-mingw
-        shell: bash
-        if: ${{ startsWith(matrix.runs-on, 'windows') && startsWith(matrix.compiler, 'mingw') }}
-        run: |
-          set -xe
-          home=$(pwd)
-
-          touch user-config.jam
-          echo "using openssl : : <include>\"C:/Program Files/OpenSSL/include\" <search>\"C:/Program Files/OpenSSL/lib\" <ssl-name>libssl <crypto-name>libcrypto : ;" | sed 's/\/d\//D:\//g' >> user-config.jam
-          cat user-config.jam
 
       - name: Patch Boost
         id: patch
@@ -884,7 +872,7 @@ jobs:
           package: false
           package-artifact: false
           ref-source-dir: boost-root/libs/http_io
-          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') && steps.patch-user-config.outputs.toolchain) || '' }}
+          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: Set Path
         if: startsWith(matrix.runs-on, 'windows') && matrix.shared
@@ -917,7 +905,7 @@ jobs:
             -D CMAKE_PREFIX_PATH=${{ steps.patch.outputs.workspace_root }}/.local
           ref-source-dir: boost-root/libs/http_io
           trace-commands: true
-          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') && steps.patch-user-config.outputs.toolchain) || '' }}
+          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: Subdirectory Integration Workflow
         uses: alandefreitas/cpp-actions/cmake-workflow@v1.8.0
@@ -938,7 +926,7 @@ jobs:
           cmake-version: '>=3.15'
           extra-args: -D BOOST_CI_INSTALL_TEST=OFF
           ref-source-dir: boost-root/libs/http_io/test/cmake_test
-          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') && steps.patch-user-config.outputs.toolchain) || '' }}
+          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: Root Project CMake Workflow
         uses: alandefreitas/cpp-actions/cmake-workflow@v1.8.0
@@ -962,7 +950,7 @@ jobs:
           package: false
           package-artifact: false
           ref-source-dir: boost-root
-          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && !startsWith(matrix.compiler, 'mingw') && steps.patch-user-config.outputs.toolchain) || '' }}
+          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: FlameGraph
         uses: alandefreitas/cpp-actions/flamegraph@v1.8.0
