@@ -708,10 +708,16 @@ jobs:
 
     name: ${{ matrix.name }}
     runs-on: ${{ fromJSON(needs.runner-selection.outputs.labelmatrix)[matrix.runs-on] }}
-    container: ${{ matrix.container }}
+    container:
+      image: ${{ matrix.container }}
+      options: --privileged
     timeout-minutes: 120
 
     steps:
+      - name: ASLR Fix
+        if: ${{ startsWith(matrix.runs-on, 'ubuntu' )}}
+        run: sysctl vm.mmap_rnd_bits=28
+
       - name: Clone Boost.Http.Io
         uses: actions/checkout@v3
         with:
