@@ -383,6 +383,13 @@ public:
     }
 
     void
+    stop()
+    {
+        system::error_code ec;
+        listener_.cancel(ec);
+    }
+
+    void
     on_worker_idle()
     {
         ++n_idle_;
@@ -434,6 +441,13 @@ public:
     run()
     {
         do_accept();
+    }
+
+    void
+    stop()
+    {
+        system::error_code ec;
+        sock_.cancel(ec);
     }
 
 private:
@@ -612,17 +626,6 @@ int main(int argc, char* argv[])
 
         file_handler fh(doc_root);
 
-        // Capture SIGINT and SIGTERM to perform a clean shutdown
-        asio::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait(
-            [&](system::error_code const&, int)
-            {
-                // Stop the `io_context`. This will cause `run()`
-                // to return immediately, eventually destroying the
-                // `io_context` and all of the sockets in it.
-                ioc.stop();
-            });
-
         http_proto::context ctx;
         {
             http_proto::request_parser::config cfg;
@@ -635,6 +638,19 @@ int main(int argc, char* argv[])
         fixed_array< worker< executor_type > > wv( num_workers, grp, doc_root );
         for(auto& w : wv)
             w.run();
+
+        // Capture SIGINT and SIGTERM to perform a clean shutdown
+        asio::signal_set signals(ioc, SIGINT, SIGTERM);
+        signals.async_wait(
+            [&](system::error_code const&, int)
+            {
+                // cancel all outstanding work,
+                // causing io_context::run to return.
+                grp.stop();
+                for(auto& w : wv)
+                    w.stop();
+            });
+
         ioc.run();
     }
     catch( std::exception const& e )
