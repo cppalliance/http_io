@@ -343,12 +343,12 @@ template< class Executor >
 class group
 {
 public:
-    using listener_type = asio::basic_socket_acceptor< tcp, Executor >;
+    using acceptor_type = asio::basic_socket_acceptor< tcp, Executor >;
     using socket_type = asio::basic_stream_socket< tcp, Executor >;
 
 private:
     asio::io_context& ioc_;
-    listener_type listener_;
+    acceptor_type acceptor_;
     http_proto::context& ctx_;
     std::size_t id_ = 0;
     std::size_t n_idle_ = 0;
@@ -359,7 +359,7 @@ public:
         tcp::endpoint ep,
         http_proto::context& ctx)
         : ioc_(ioc)
-        , listener_(ioc, ep)
+        , acceptor_(ioc, ep)
         , ctx_(ctx)
     {
     }
@@ -370,10 +370,10 @@ public:
         return ++id_;
     }
 
-    listener_type&
-    listener() noexcept
+    acceptor_type&
+    acceptor() noexcept
     {
-        return listener_;
+        return acceptor_;
     }
 
     http_proto::context&
@@ -386,7 +386,7 @@ public:
     stop()
     {
         system::error_code ec;
-        listener_.cancel(ec);
+        acceptor_.cancel(ec);
     }
 
     void
@@ -429,7 +429,7 @@ public:
         group_type& grp,
         std::string const& doc_root)
         : grp_(grp)
-        , sock_(grp_.listener().get_executor())
+        , sock_(grp_.acceptor().get_executor())
         , doc_root_(doc_root)
         , pr_(grp_.context())
         , sr_(65536)
@@ -482,7 +482,7 @@ private:
         pr_.reset();
 
         grp_.on_worker_idle();
-        grp_.listener().async_accept( sock_,
+        grp_.acceptor().async_accept( sock_,
             std::bind(&worker::on_accept, this, _1));
     }
 
