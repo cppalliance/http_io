@@ -19,13 +19,10 @@
 
 //#define LOGGING
 
-namespace server {
-
 namespace io = boost::http_io;
 namespace urls = boost::urls;
 namespace asio = boost::asio;
 namespace core = boost::core;
-namespace system = boost::system;
 namespace http_proto = boost::http_proto;
 using namespace std::placeholders;
 using tcp = boost::asio::ip::tcp;
@@ -251,7 +248,7 @@ handle_request(
         path.append("index.html");
 
     // Attempt to open the file
-    system::error_code ec;
+    boost::system::error_code ec;
     http_proto::file f;
     std::uint64_t size = 0;
     f.open(path.c_str(), http_proto::file_mode::scan, ec);
@@ -347,7 +344,6 @@ public:
     using socket_type = asio::basic_stream_socket< tcp, Executor >;
 
 private:
-    asio::io_context& ioc_;
     acceptor_type acceptor_;
     http_proto::context& ctx_;
     std::size_t id_ = 0;
@@ -355,11 +351,10 @@ private:
 
 public:
     group(
-        asio::io_context& ioc,
+        Executor const& ex,
         tcp::endpoint ep,
         http_proto::context& ctx)
-        : ioc_(ioc)
-        , acceptor_(ioc, ep)
+        : acceptor_(ex, ep)
         , ctx_(ctx)
     {
     }
@@ -385,7 +380,7 @@ public:
     void
     stop()
     {
-        system::error_code ec;
+        boost::system::error_code ec;
         acceptor_.cancel(ec);
     }
 
@@ -422,9 +417,6 @@ private:
     bool is_service_unavailable_;
 
 public:
-    worker(worker&&) = delete;
-    worker(worker const&) = delete;
-
     worker(
         group_type& grp,
         std::string const& doc_root)
@@ -446,7 +438,7 @@ public:
     void
     stop()
     {
-        system::error_code ec;
+        boost::system::error_code ec;
         sock_.cancel(ec);
     }
 
@@ -454,7 +446,7 @@ private:
     void
     fail(
         std::string what,
-        system::error_code ec)
+        boost::system::error_code ec)
     {
         if( ec == asio::error::operation_aborted )
             return;
@@ -477,7 +469,7 @@ private:
     do_accept()
     {
         // Clean up any previous connection.
-        system::error_code ec;
+        boost::system::error_code ec;
         sock_.close(ec);
         pr_.reset();
 
@@ -487,7 +479,7 @@ private:
     }
 
     void
-    on_accept(system::error_code ec)
+    on_accept(boost::system::error_code ec)
     {
         is_service_unavailable_ = grp_.on_worker_busy();
         if( ec.failed() )
@@ -516,7 +508,7 @@ private:
 
     void
     on_read_header(
-        system::error_code ec,
+        boost::system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -535,7 +527,7 @@ private:
 
     void
     on_read_body(
-        system::error_code ec,
+        boost::system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -578,7 +570,7 @@ private:
 
     void
     on_write(
-        system::error_code ec,
+        boost::system::error_code ec,
         std::size_t bytes_transferred)
     {
         (void)bytes_transferred;
@@ -631,7 +623,7 @@ int main(int argc, char* argv[])
             http_proto::request_parser::config cfg;
             http_proto::install_parser_service(ctx, cfg);
         }
-        group< executor_type > grp( ioc, { addr, port }, ctx );
+        group< executor_type > grp( ioc.get_executor(), { addr, port }, ctx );
 
         // 1 extra worker to refuse connections when full
         ++num_workers;
@@ -642,7 +634,7 @@ int main(int argc, char* argv[])
         // Capture SIGINT and SIGTERM to perform a clean shutdown
         asio::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait(
-            [&](system::error_code const&, int)
+            [&](boost::system::error_code const&, int)
             {
                 // cancel all outstanding work,
                 // causing io_context::run to return.
@@ -659,11 +651,4 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }    
     return EXIT_SUCCESS;
-}
-
-} // server
-
-int main(int argc, char* argv[])
-{
-    return server::main(argc, argv);
 }
