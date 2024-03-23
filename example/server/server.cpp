@@ -8,6 +8,7 @@
 //
 
 #include <boost/asio.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
 #include <boost/url.hpp>
