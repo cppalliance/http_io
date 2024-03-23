@@ -324,7 +324,7 @@ service_unavailable(
     res.set_payload_size(s.size());
     res.append(http_proto::field::content_type, "text/html; charset=iso-8859-1");
     //res.append(http_proto::field::date, "Mon, 12 Dec 2022 03:26:32 GMT" );
-    res.append(http_proto::field::server, "BoostServerTech");
+    res.append(http_proto::field::server, "Boost.Http.Io");
 
     sr.start(
         res,
@@ -338,24 +338,24 @@ BOOST_STATIC_ASSERT(
     std::is_move_constructible<http_proto::serializer>::value);
 
 template< class Executor >
-class group
+class acceptor
 {
 public:
     using acceptor_type = asio::basic_socket_acceptor< tcp, Executor >;
     using socket_type = asio::basic_stream_socket< tcp, Executor >;
 
 private:
-    acceptor_type acceptor_;
+    acceptor_type sock_;
     http_proto::context& ctx_;
     std::size_t id_ = 0;
     std::size_t n_idle_ = 0;
 
 public:
-    group(
+    acceptor(
         Executor const& ex,
         tcp::endpoint ep,
         http_proto::context& ctx)
-        : acceptor_(ex, ep)
+        : sock_(ex, ep)
         , ctx_(ctx)
     {
     }
@@ -367,9 +367,9 @@ public:
     }
 
     acceptor_type&
-    acceptor() noexcept
+    socket() noexcept
     {
-        return acceptor_;
+        return sock_;
     }
 
     http_proto::context&
@@ -382,7 +382,7 @@ public:
     stop()
     {
         boost::system::error_code ec;
-        acceptor_.cancel(ec);
+        sock_.cancel(ec);
     }
 
     void
@@ -404,12 +404,12 @@ template< class Executor >
 class worker
 {
 public:
-    using group_type = group< Executor >;
+    using acceptor_type = acceptor< Executor >;
 
 private:
     // order of destruction matters here
-    group_type& grp_;
-    typename group_type::socket_type sock_;
+    acceptor_type& ac_;
+    typename acceptor_type::socket_type sock_;
     std::string const& doc_root_;
     http_proto::request_parser pr_;
     http_proto::response res_;
@@ -419,14 +419,14 @@ private:
 
 public:
     worker(
-        group_type& grp,
+        acceptor_type& ac,
         std::string const& doc_root)
-        : grp_(grp)
-        , sock_(grp_.acceptor().get_executor())
+        : ac_(ac)
+        , sock_(ac_.socket().get_executor())
         , doc_root_(doc_root)
-        , pr_(grp_.context())
+        , pr_(ac_.context())
         , sr_(65536)
-        , id_(grp_.next_id())
+        , id_(ac_.next_id())
     {
     }
 
@@ -474,15 +474,15 @@ private:
         sock_.close(ec);
         pr_.reset();
 
-        grp_.on_worker_idle();
-        grp_.acceptor().async_accept( sock_,
+        ac_.on_worker_idle();
+        ac_.socket().async_accept( sock_,
             std::bind(&worker::on_accept, this, _1));
     }
 
     void
     on_accept(boost::system::error_code ec)
     {
-        is_service_unavailable_ = grp_.on_worker_busy();
+        is_service_unavailable_ = ac_.on_worker_busy();
         if( ec.failed() )
         {
             fail("async_accept", ec);
@@ -624,11 +624,11 @@ int main(int argc, char* argv[])
             http_proto::request_parser::config cfg;
             http_proto::install_parser_service(ctx, cfg);
         }
-        group< executor_type > grp( ioc.get_executor(), { addr, port }, ctx );
+        acceptor< executor_type > ac( ioc.get_executor(), { addr, port }, ctx );
 
         // 1 extra worker to refuse connections when full
         ++num_workers;
-        fixed_array< worker< executor_type > > wv( num_workers, grp, doc_root );
+        fixed_array< worker< executor_type > > wv( num_workers, ac, doc_root );
         for(auto& w : wv)
             w.run();
 
@@ -639,7 +639,7 @@ int main(int argc, char* argv[])
             {
                 // cancel all outstanding work,
                 // causing io_context::run to return.
-                grp.stop();
+                ac.stop();
                 for(auto& w : wv)
                     w.stop();
             });
