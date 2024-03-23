@@ -7,11 +7,9 @@
 # Official repository: https://github.com/CPPAlliance/http_io
 #
 
-set(PFILES
+file(GLOB_RECURSE PFILES CONFIGURE_DEPENDS *.cpp *.hpp
     CMakeLists.txt
-    Jamfile
-    fixed_array.hpp
-    server.cpp)
+    Jamfile)
 
 source_group( TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES} )
 

@@ -24,4 +24,7 @@ project
       <target-os>windows:<define>_WIN32_WINNT=0x0601 # VFALCO?
     ;
 
-exe server : server.cpp ;
+exe server :
+    main.cpp
+    server.cpp
+    ;

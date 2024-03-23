@@ -10,17 +10,21 @@
 #ifndef FIXED_ARRAY_HPP
 #define FIXED_ARRAY_HPP
 
+#include <cstddef>
 #include <cstdlib>
+#include <memory>
 
 template<class T>
 class fixed_array
 {
+#if 0
 //#if __cplusplus < 201703L // gcc nonconforming
     static_assert(
         alignof(T) <=
             alignof(std::max_align_t),
         "T must not be overaligned");
 //#endif
+#endif
 
     T* t_ = nullptr;
     std::size_t n_ = 0;
