@@ -9,8 +9,7 @@
 
 #include "server.hpp"
 
-#include <boost/asio.hpp>
-#include <boost/asio/strand.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
 #include <boost/url.hpp>
@@ -350,10 +349,10 @@ public:
     using executor_type = Executor;
 
 private:
+    server& srv_;
     acceptor_type sock_;
     http_proto::context& ctx_;
     std::size_t id_ = 0;
-    std::size_t n_idle_ = 0;
     fixed_array< worker< executor_type > > wv_;
 
 public:
@@ -363,10 +362,17 @@ public:
         http_proto::context& ctx,
         std::size_t num_workers,
         std::string const& doc_root)
-        : sock_(srv.make_executor(), ep)
+        : srv_(srv)
+        , sock_(srv.make_executor(), ep)
         , ctx_(ctx)
         , wv_(num_workers, srv, *this, doc_root)
     {
+    }
+
+    bool
+    is_shutting_down() const noexcept
+    {
+        return srv_.is_shutting_down();
     }
 
     std::size_t
@@ -402,18 +408,6 @@ public:
         for(auto& w : wv_)
             w.stop();
     }
-
-    void
-    on_worker_idle()
-    {
-        ++n_idle_;
-    }
-
-    bool
-    on_worker_busy()
-    {
-        return --n_idle_ == 0;
-    }
 };
 
 //-----------------------------------------------
@@ -433,7 +427,6 @@ private:
     http_proto::response res_;
     http_proto::serializer sr_;
     std::size_t id_ = 0;
-    bool is_service_unavailable_;
 
 public:
     worker(
@@ -493,7 +486,6 @@ private:
         sock_.close(ec);
         pr_.reset();
 
-        ac_.on_worker_idle();
         ac_.socket().async_accept( sock_,
             std::bind(&worker::on_accept, this, _1));
     }
@@ -501,7 +493,6 @@ private:
     void
     on_accept(boost::system::error_code ec)
     {
-        is_service_unavailable_ = ac_.on_worker_busy();
         if( ec.failed() )
         {
             fail("async_accept", ec);
@@ -562,19 +553,17 @@ private:
 
         res_.clear();
 
-        if(is_service_unavailable_)
-        {
-            service_unavailable(pr_.get(), res_, sr_);
-            //sock_.close();
-            //return do_accept();
-        }
-        else
+        if(! ac_.is_shutting_down())
         {
             handle_request(
                 doc_root_,
                 pr_.get(),
                 res_,
                 sr_);
+        }
+        else
+        {
+            service_unavailable(pr_.get(), res_, sr_);
         }
 
     #ifdef LOGGING
@@ -633,8 +622,6 @@ int main(int argc, char* argv[])
         std::size_t num_workers = std::atoi(argv[4]);
 
         using executor_type = asio::io_context::executor_type;
-
-        asio::io_context ioc( 1 );
 
         file_handler fh(doc_root);
 

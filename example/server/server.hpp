@@ -42,10 +42,16 @@ public:
     void run();
     void stop();
 
+    bool is_shutting_down() const noexcept
+    {
+        return is_shutting_down_;
+    }
+
 private:
     boost::asio::io_context ioc_;
     boost::asio::signal_set sigs_;
     std::vector<std::unique_ptr<service>> v_;
+    bool is_shutting_down_ = false;
 };
 
 template<class Service, class... Args>
