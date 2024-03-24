@@ -10,6 +10,7 @@
 #ifndef BOOST_HTTP_IO_EXAMPLE_SERVER_HPP
 #define BOOST_HTTP_IO_EXAMPLE_SERVER_HPP
 
+#include <boost/asio/basic_waitable_timer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <memory>
@@ -48,8 +49,15 @@ public:
     }
 
 private:
+    void on_signal(boost::system::error_code const&, int);
+    void on_timer(boost::system::error_code const&);
+
     boost::asio::io_context ioc_;
     boost::asio::signal_set sigs_;
+    boost::asio::basic_waitable_timer<
+        std::chrono::steady_clock,
+        boost::asio::wait_traits<std::chrono::steady_clock>,
+        executor_type> timer_;
     std::vector<std::unique_ptr<service>> v_;
     bool is_shutting_down_ = false;
 };
