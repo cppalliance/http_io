@@ -10,20 +10,26 @@
 #ifndef FIXED_ARRAY_HPP
 #define FIXED_ARRAY_HPP
 
+#include <cstddef>
 #include <cstdlib>
+#include <memory>
 
 template<class T>
 class fixed_array
 {
+#if 0
 //#if __cplusplus < 201703L // gcc nonconforming
     static_assert(
         alignof(T) <=
             alignof(std::max_align_t),
         "T must not be overaligned");
 //#endif
+#endif
 
     T* t_ = nullptr;
     std::size_t n_ = 0;
+
+    fixed_array() = default;
 
 public:
     using value_type = T;
@@ -41,43 +47,23 @@ public:
     fixed_array(
         std::size_t N,
         Args&&... args)
-        : t_(std::allocator<T>{
-            }.allocate(N))
+        : fixed_array()
     {
-        struct cleanup
-        {
-            T* t_;
-            std::size_t& n_;
-            std::size_t N_;
-
-            ~cleanup()
-            {
-                if(! t_)
-                    return;
-                while(n_--)
-                    t_[n_].~T();
-                std::allocator<T>{
-                    }.deallocate(t_, N_);
-            }
-        };
-
-        cleanup cl{ t_, n_, N };
+        t_ = std::allocator<T>{}.allocate(N);
         while(n_ < N)
         {
-            ::new(&t_[n_]) T(
-                std::forward<Args>(args)...);
+            ::new(&t_[n_]) T(args...);
             ++n_;
         }
-        cl.t_ = nullptr;
     }
 
     ~fixed_array()
     {
-        auto n = n_;
-        while(n--)
+        if(! t_)
+            return;
+        for(auto n = n_; n--;)
             t_[n].~T();
-        std::allocator<T>{
-            }.deallocate(t_, n_);
+        std::allocator<T>{}.deallocate(t_, n_);
     }
 
     std::size_t

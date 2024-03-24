@@ -11,7 +11,9 @@ set(PFILES
     CMakeLists.txt
     Jamfile
     fixed_array.hpp
-    server.cpp)
+    main.cpp
+    server.cpp
+)
 
 source_group( TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES} )
 
