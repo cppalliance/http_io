@@ -10,6 +10,8 @@
 #ifndef BOOST_HTTP_IO_EXAMPLE_SERVER_HPP
 #define BOOST_HTTP_IO_EXAMPLE_SERVER_HPP
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/signal_set.hpp>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -17,6 +19,9 @@
 class server
 {
 public:
+    using executor_type =
+        boost::asio::io_context::executor_type;
+
     class service
     {
     public:
@@ -25,37 +30,38 @@ public:
         virtual void stop() = 0;
     };
 
+    server();
+
+    executor_type
+    make_executor();
+
     template<class Service, class... Args>
     Service&
-    make_service(Args&&... args)
-    {
-        static_assert(
-            std::is_convertible<Service*, service*>::value,
-            "Type requirements not met.");
+    make_service(Args&&... args);
 
-        auto p = std::make_unique<Service>(
-            std::forward<Args>(args)...);
-        auto& svc = *p;
-        v_.emplace_back(std::move(p));
-        return svc;
-    }
-
-    void
-    run()
-    {
-        for(auto& svc : v_)
-            svc.run();
-    }
-
-    void
-    stop()
-    {
-        for(auto& svc : v_)
-            svc.stop();
-    }
+    void run();
+    void stop();
 
 private:
-    std::vector<service> v_;
+    boost::asio::io_context ioc_;
+    boost::asio::signal_set sigs_;
+    std::vector<std::unique_ptr<service>> v_;
 };
+
+template<class Service, class... Args>
+Service&
+server::
+make_service(Args&&... args)
+{
+    static_assert(
+        std::is_convertible<Service*, service*>::value,
+        "Type requirements not met.");
+
+    auto p = std::make_unique<Service>(
+        std::forward<Args>(args)...);
+    auto& svc = *p;
+    v_.emplace_back(std::move(p));
+    return svc;
+}
 
 #endif
