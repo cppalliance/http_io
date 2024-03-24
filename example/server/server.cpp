@@ -7,6 +7,8 @@
 // Official repository: https://github.com/CPPAlliance/http_io
 //
 
+#include "server.hpp"
+
 #include <boost/asio.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/http_io.hpp>
@@ -17,6 +19,8 @@
 #include <iostream>
 #include <vector>
 #include "fixed_array.hpp"
+
+//-----------------------------------------------
 
 //#define LOGGING
 
@@ -334,29 +338,34 @@ service_unavailable(
 
 //------------------------------------------------
 
-BOOST_STATIC_ASSERT(
-    std::is_move_constructible<http_proto::serializer>::value);
+template< class Executor >
+class worker;
 
 template< class Executor >
-class acceptor
+class acceptor : public server::service
 {
 public:
     using acceptor_type = asio::basic_socket_acceptor< tcp, Executor >;
     using socket_type = asio::basic_stream_socket< tcp, Executor >;
+    using executor_type = Executor;
 
 private:
     acceptor_type sock_;
     http_proto::context& ctx_;
     std::size_t id_ = 0;
     std::size_t n_idle_ = 0;
+    fixed_array< worker< executor_type > > wv_;
 
 public:
     acceptor(
         Executor const& ex,
         tcp::endpoint ep,
-        http_proto::context& ctx)
+        http_proto::context& ctx,
+        std::size_t num_workers,
+        std::string const& doc_root)
         : sock_(ex, ep)
         , ctx_(ctx)
+        , wv_(num_workers, *this, doc_root)
     {
     }
 
@@ -379,10 +388,19 @@ public:
     }
 
     void
-    stop()
+    run() override
+    {
+        for(auto& w : wv_)
+            w.run();
+    }
+
+    void
+    stop() override
     {
         boost::system::error_code ec;
         sock_.cancel(ec);
+        for(auto& w : wv_)
+            w.stop();
     }
 
     void
@@ -624,13 +642,11 @@ int main(int argc, char* argv[])
             http_proto::request_parser::config cfg;
             http_proto::install_parser_service(ctx, cfg);
         }
-        acceptor< executor_type > ac( ioc.get_executor(), { addr, port }, ctx );
 
-        // 1 extra worker to refuse connections when full
-        ++num_workers;
-        fixed_array< worker< executor_type > > wv( num_workers, ac, doc_root );
-        for(auto& w : wv)
-            w.run();
+        server serv;
+        acceptor< executor_type > ac( ioc.get_executor(), { addr, port }, ctx, num_workers, doc_root );
+
+        ac.run();
 
         // Capture SIGINT and SIGTERM to perform a clean shutdown
         asio::signal_set signals(ioc, SIGINT, SIGTERM);
@@ -640,8 +656,6 @@ int main(int argc, char* argv[])
                 // cancel all outstanding work,
                 // causing io_context::run to return.
                 ac.stop();
-                for(auto& w : wv)
-                    w.stop();
             });
 
         ioc.run();
