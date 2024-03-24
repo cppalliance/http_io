@@ -7,6 +7,9 @@
 // Official repository: https://github.com/CPPAlliance/http_io
 //
 
+#include "fixed_array.hpp"
+
+#include "acceptor.hpp"
 #include "server.hpp"
 
 #include <boost/asio/ip/tcp.hpp>
@@ -17,7 +20,6 @@
 #include <functional>
 #include <iostream>
 #include <vector>
-#include "fixed_array.hpp"
 
 //-----------------------------------------------
 
@@ -336,81 +338,6 @@ service_unavailable(
 }
 
 //------------------------------------------------
-
-template< class Executor >
-class worker;
-
-template< class Executor >
-class acceptor : public server::service
-{
-public:
-    using acceptor_type = asio::basic_socket_acceptor< tcp, Executor >;
-    using socket_type = asio::basic_stream_socket< tcp, Executor >;
-    using executor_type = Executor;
-
-private:
-    server& srv_;
-    acceptor_type sock_;
-    http_proto::context& ctx_;
-    std::size_t id_ = 0;
-    fixed_array< worker< executor_type > > wv_;
-
-public:
-    acceptor(
-        server& srv,
-        tcp::endpoint ep,
-        http_proto::context& ctx,
-        std::size_t num_workers,
-        std::string const& doc_root)
-        : srv_(srv)
-        , sock_(srv.make_executor(), ep)
-        , ctx_(ctx)
-        , wv_(num_workers, srv, *this, doc_root)
-    {
-    }
-
-    bool
-    is_shutting_down() const noexcept
-    {
-        return srv_.is_shutting_down();
-    }
-
-    std::size_t
-    next_id() noexcept
-    {
-        return ++id_;
-    }
-
-    acceptor_type&
-    socket() noexcept
-    {
-        return sock_;
-    }
-
-    http_proto::context&
-    context() const noexcept
-    {
-        return ctx_;
-    }
-
-    void
-    run() override
-    {
-        for(auto& w : wv_)
-            w.run();
-    }
-
-    void
-    stop() override
-    {
-        boost::system::error_code ec;
-        sock_.cancel(ec);
-        for(auto& w : wv_)
-            w.stop();
-    }
-};
-
-//-----------------------------------------------
 
 template< class Executor >
 class worker
