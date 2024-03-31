@@ -11,8 +11,8 @@
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
 #include <boost/url.hpp>
+#include <boost/compat/bind_front.hpp>
 #include <boost/core/detail/string_view.hpp>
-#include <functional>
 #include <iostream>
 #include <vector>
 #include "fixed_array.hpp"
@@ -24,10 +24,10 @@ namespace server {
 namespace io = boost::http_io;
 namespace urls = boost::urls;
 namespace asio = boost::asio;
+namespace compat = boost::compat;
 namespace core = boost::core;
 namespace system = boost::system;
 namespace http_proto = boost::http_proto;
-using namespace std::placeholders;
 using tcp = boost::asio::ip::tcp;
 
 //-----------------------------------------------
@@ -270,10 +270,8 @@ handle_request(
         res.append(
             http_proto::field::content_type, mt);
 
-        sr.start(
-            res,
-            http_proto::file_body(
-                std::move(f), size));
+        sr.start<http_proto::file_body>(
+            res, std::move(f), size);
         return;
     }
 
@@ -469,7 +467,7 @@ private:
 
         grp_.on_worker_idle();
         grp_.listener().async_accept( sock_,
-            std::bind(&worker::on_accept, this, _1));
+            compat::bind_front(&worker::on_accept, this));
     }
 
     void
@@ -496,8 +494,8 @@ private:
     {
         pr_.start();
 
-        io::async_read_header(sock_, pr_, std::bind(
-            &worker::on_read_header, this, _1, _2));
+        io::async_read_header(sock_, pr_, compat::bind_front(
+            &worker::on_read_header, this));
     }
 
     void
@@ -515,8 +513,8 @@ private:
             return do_accept();
         }
 
-        io::async_read(sock_, pr_, std::bind(
-            &worker::on_read_body, this, _1, _2));
+        io::async_read(sock_, pr_, compat::bind_front(
+            &worker::on_read_body, this));
     }
 
     void
@@ -558,8 +556,8 @@ private:
             "--------------------------------------------------\n";
     #endif
 
-        io::async_write(sock_, sr_, std::bind(
-            &worker::on_write, this, _1, _2));
+        io::async_write(sock_, sr_, compat::bind_front(
+            &worker::on_write, this));
     }
 
     void

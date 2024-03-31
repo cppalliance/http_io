@@ -58,6 +58,7 @@ function(boost_http_io_setup_properties target)
         PUBLIC
             Boost::asio
             Boost::assert
+            Boost::compat
             Boost::config
             Boost::http_proto
             Boost::system
