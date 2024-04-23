@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "@antora/cli": "3.1.7",
+    "@antora/site-generator": "3.1.7",
+    "antora": "3.1.7"
+  },
+  "dependencies": {
+    "@antora/collector-extension": "^1.0.0-alpha.3",
+    "@antora/lunr-extension": "^1.0.0-alpha.8",
+    "@asciidoctor/tabs": "^1.0.0-beta.6",
+    "@xmldom/xmldom": "^0.8.10",
+    "asciidoctor": "^3.0.4",
+    "sync-request": "^6.1.0",
+    "xpath": "^0.0.34"
+  }
+}

@@ -1,0 +1,29 @@
+site:
+  title: Boost.Http.Io
+  url: https://antora.cppalliance.org/develop/lib/doc
+  start_page: http_io::index.adoc
+  robots: allow
+  keys:
+    repo_url: 'https://github.com/cppalliance/http_io'
+
+content:
+  sources:
+    - url: ..
+      start_path: doc
+      edit_url: 'https://github.com/cppalliance/http_io/edit/{refname}/{path}'
+
+ui:
+  bundle:
+    url: https://github.com/cppalliance/site-docs/releases/download/ui-master/ui-bundle.zip
+    snapshot: true
+
+antora:
+  extensions:
+    - require: '@antora/lunr-extension'
+      index_latest_only: true
+    - '@antora/collector-extension'
+asciidoc:
+  extensions:
+    - ./lib/boost-link-inline-macro.js
+    - ./lib/cpp.js
+    - '@asciidoctor/tabs'

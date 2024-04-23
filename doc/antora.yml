@@ -1,0 +1,16 @@
+name: http_io
+version: ~
+title: Boost.Http.Io
+start_page: index.adoc
+asciidoc:
+  attributes:
+    source-language: asciidoc@
+    table-caption: false
+nav:
+  - modules/ROOT/nav.adoc
+ext:
+  collector:
+    run:
+      command: node doc/generate-files.mjs
+    scan:
+      dir: doc/build/generated-files

@@ -14,9 +14,6 @@
 
 namespace boost {
 
-#if defined(BOOST_HTTP_IO_DOCS)
-# define BOOST_HTTP_IO_DECL
-#else
 # if (defined(BOOST_HTTP_IO_DYN_LINK) || defined(BOOST_ALL_DYN_LINK)) && !defined(BOOST_HTTP_IO_STATIC_LINK)
 #  if defined(BOOST_HTTP_IO_SOURCE)
 #   define BOOST_HTTP_IO_DECL        BOOST_SYMBOL_EXPORT
@@ -37,7 +34,6 @@ namespace boost {
 #  endif
 #  include <boost/config/auto_link.hpp>
 # endif
-#endif
 
 /*
 // lift grammar into our namespace
