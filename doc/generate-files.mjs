@@ -169,6 +169,18 @@ if (isBoostDir(cwdParentParent)) {
     execSync('git submodule update --init --recursive', {cwd: boostDir})
     console.log(`Cloned Boost to ${boostDir}`)
 
+    // Clone buffers
+    if (!fs.existsSync(path.join(boostDir, 'libs', 'buffers'))){
+        execSync(`git clone https://github.com/CPPAlliance/buffers --depth 1 --branch ${boostBranch}`,
+            { cwd: path.join(boostDir, 'libs') })
+    }
+
+    // Clone http_proto
+    if (!fs.existsSync(path.join(boostDir, 'libs', 'http_proto'))){
+        execSync(`git clone https://github.com/CPPAlliance/http_proto --depth 1 --branch ${boostBranch}`,
+            { cwd: path.join(boostDir, 'libs') })
+    }
+
     // Delete `self` from boost/libs
     const selfDir = path.join(boostDir, 'libs', self)
     console.log(`Deleting ${selfDir}`)

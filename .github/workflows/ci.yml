@@ -1024,6 +1024,9 @@ jobs:
     needs: [ runner-selection ]
     runs-on: ${{ fromJSON(needs.runner-selection.outputs.labelmatrix)['ubuntu-latest'] }}
     steps:
+      - name: Clone Boost.Http.Io
+        uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -1035,78 +1038,13 @@ jobs:
           compiler: clang
           version: 17
 
-      - name: Clone Boost.Http.Io
-        uses: actions/checkout@v3
-        with:
-            path: http-io-root
-
-      - name: Clone Boost.Http.Proto
-        uses: actions/checkout@v3
-        with:
-          repository: cppalliance/http_proto
-          path: http-proto-root
-          ref: develop
-
-      - name: Clone Boost.Buffers
-        uses: actions/checkout@v3
-        with:
-          path: buffers-root
-          repository: cppalliance/buffers
-          ref: develop
-
-      - name: Clone Boost
-        uses: alandefreitas/cpp-actions/boost-clone@v1.8.0
-        id: boost-clone
-        with:
-          branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
-          boost-dir: boost-source
-          scan-modules-dir: http-io-root
-          scan-modules-ignore: http_io
-
-      - name: Patch Boost
-        id: patch
-        shell: bash
-        run: |
-          set -xe
-          pwd
-          ls
-          ls -lah boost-source
-
-          # Identify boost module being tested
-          module=${GITHUB_REPOSITORY#*/}
-          echo "module=$module" >> $GITHUB_OUTPUT
-
-          # Identify GitHub workspace root
-          workspace_root=$(echo "$GITHUB_WORKSPACE" | sed 's/\\/\//g')
-          echo -E "workspace_root=$workspace_root" >> $GITHUB_OUTPUT
-
-          # Remove module from boost-source
-          rm -r "boost-source/libs/$module" || true
-
-          # Copy cached boost-source to an isolated boost-root
-          cp -r boost-source boost-root
-
-          # Set boost-root output
-          cd boost-root
-          boost_root="$(pwd)"
-          boost_root=$(echo "$boost_root" | sed 's/\\/\//g')
-          echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
-
-          # Patch boost-root with workspace module
-          cp -r "$workspace_root"/http-io-root "libs/$module"
-          cp -r "$workspace_root"/buffers-root libs/buffers
-          cp -r "$workspace_root"/http-proto-root libs/http_proto
-
-          python3 tools/boostdep/depinst/depinst.py buffers
-          python3 tools/boostdep/depinst/depinst.py http_proto
-
       - name: Build Antora Docs
         run: |
-          cd boost-root/libs/http_io/doc
+          cd doc
           bash ./build_antora.sh
 
       - name: Create Antora Docs Artifact
         uses: actions/upload-artifact@v3
         with:
           name: antora-docs
-          path: boost-root/libs/http_io/doc/build/site
+          path: doc/build/site
