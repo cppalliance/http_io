@@ -1,0 +1,44 @@
+//
+// Copyright (c) 2023 Vinnie Falco (vinnie.falco@gmail.com)
+// Copyright (c) 2024 Mohammad Nejati
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/buffers
+//
+
+= Boost.Http.Io
+
+Boost.Http.Io is a portable, low-level C++ library which implements the HTTP/1
+protocol using Boost.Asio networking.
+
+Boost.Http.Io offers these features:
+
+* Require only C++11
+* Fast compilation, few templates
+
+== Requirements
+
+* Requires Boost and a compiler supporting at least C++11
+* Aliases for standard types use their Boost equivalents
+* Link to a built static or dynamic Boost library, or use header-only (see below)
+
+== Tested Compilers
+
+Boost.Buffers has been tested with the following compilers:
+
+* clang: 3.8, 4, 5, 6, 7, 8, 9, 10, 11, 12
+* gcc: 4.8, 4.9, 5, 6, 7, 8, 9, 10, 11
+* msvc: 14.1, 14.2, 14.3
+
+== Quality Assurance
+
+The development infrastructure for the library includes these per-commit analyses:
+
+* Coverage reports
+* Compilation and tests on Drone.io and GitHub Actions
+
+== Security Review (Bishop Fox)
+
+TBA
