@@ -7,6 +7,18 @@
 # Official repository: https://github.com/CPPAlliance/http_io
 #
 
+import ../../config/checks/config : requires ;
+
+constant c11-requires :
+    [ requires
+    cxx11_constexpr
+    cxx11_decltype
+    cxx11_hdr_tuple
+    cxx11_template_aliases
+    cxx11_variadic_templates
+    ]
+    ;
+
 project boost/http_io
     : requirements
       $(c11-requires)
