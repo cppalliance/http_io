@@ -362,7 +362,7 @@ public:
         , sock_(srv.make_executor())
         , doc_root_(doc_root)
         , pr_(ac_.context())
-        , sr_(65536)
+        , sr_(ac_.context(), 65536)
         , id_(ac_.next_id())
     {
     }
