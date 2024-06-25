@@ -1,5 +1,4 @@
 #
-# Copyright (c) 2023 Vinnie Falco (vinnie.falco@gmail.com)
 # Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -8,5 +7,4 @@
 # Official repository: https://github.com/cppalliance/http_io
 #
 
-build-project client ;
-build-project server ;
+build-project flex_await ;
