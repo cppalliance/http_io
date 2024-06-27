@@ -23,26 +23,34 @@ namespace http_io {
 template<
     class AsyncWriteStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(system::error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken
+            BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
+                typename AsyncWriteStream::executor_type)>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (system::error_code, std::size_t))
 async_write_some(
     AsyncWriteStream& dest,
     http_proto::serializer& sr,
-    CompletionToken&& token);
+    CompletionToken&& token
+        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
+            typename AsyncWriteStream::executor_type));
 
 /** Write HTTP data to a stream
 */
 template<
     class AsyncWriteStream,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(system::error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken
+            BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
+                typename AsyncWriteStream::executor_type)>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (system::error_code, std::size_t))
 async_write(
     AsyncWriteStream& dest,
     http_proto::serializer& sr,
-    CompletionToken&& token);
+    CompletionToken&& token
+        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
+            typename AsyncWriteStream::executor_type));
 
 #if 0
 /**
@@ -52,7 +60,9 @@ template<
     class AsyncReadStream,
     class CompletionCondition,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(
-        void(system::error_code, std::size_t)) CompletionToken>
+        void(system::error_code, std::size_t)) CompletionToken
+            BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
+                typename AsyncWriteStream::executor_type)>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken,
     void (system::error_code, std::size_t))
 async_relay_some(
@@ -60,7 +70,9 @@ async_relay_some(
     AsyncReadStream& src,
     CompletionCondition const& cond,
     http_proto::serializer& sr,
-    CompletionToken&& token);
+    CompletionToken&& token
+        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
+            typename AsyncWriteStream::executor_type));
 #endif
 
 } // http_io
