@@ -1021,8 +1021,7 @@ jobs:
 
   antora:
     name: Antora Docs
-    needs: [ runner-selection ]
-    runs-on: ${{ fromJSON(needs.runner-selection.outputs.labelmatrix)['ubuntu-latest'] }}
+    runs-on: ubuntu-latest
     steps:
       - name: Clone Boost.Http.Io
         uses: actions/checkout@v3
@@ -1036,10 +1035,17 @@ jobs:
         id: setup-cpp
         with:
           compiler: clang
-          version: 17
+          version: 18
 
       - name: Build Antora Docs
         run: |
+          set -xe
+
+          CXX="/usr/bin/clang++-18"
+          export CXX
+          CC="/usr/bin/clang-18"
+          export CC
+
           cd doc
           bash ./build_antora.sh
 
