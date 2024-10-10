@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <variant>
 
 #if defined(BOOST_ASIO_HAS_CO_AWAIT)
 
@@ -24,6 +25,167 @@ namespace http_io    = boost::http_io;
 namespace http_proto = boost::http_proto;
 namespace ssl        = boost::asio::ssl;
 namespace urls       = boost::urls;
+
+class any_stream
+{
+public:
+    using executor_type     = asio::any_io_executor;
+    using plain_stream_type = asio::ip::tcp::socket;
+    using ssl_stream_type   = ssl::stream<plain_stream_type>;
+
+    any_stream(plain_stream_type stream)
+        : stream_{ std::move(stream) }
+    {
+    }
+
+    any_stream(ssl_stream_type stream)
+        : stream_{ std::move(stream) }
+    {
+    }
+
+    executor_type
+    get_executor() noexcept
+    {
+        return std::visit([](auto& s) { return s.get_executor(); }, stream_);
+    }
+
+    template<
+        typename ConstBufferSequence,
+        typename CompletionToken =
+            asio::default_completion_token_t<executor_type>>
+    auto
+    async_write_some(
+        const ConstBufferSequence& buffers,
+        CompletionToken&& token =
+            asio::default_completion_token_t<executor_type>{})
+    {
+        return boost::asio::async_compose<
+            CompletionToken,
+            void(boost::system::error_code, size_t)>(
+            [this, buffers, init = false](
+                auto&& self,
+                boost::system::error_code ec = {},
+                size_t n                     = 0) mutable
+            {
+                if(std::exchange(init, true))
+                    return self.complete(ec, n);
+
+                std::visit(
+                    [&](auto& s)
+                    { s.async_write_some(buffers, std::move(self)); },
+                    stream_);
+            },
+            token,
+            get_executor());
+    }
+
+    template<
+        typename MutableBufferSequence,
+        typename CompletionToken =
+            asio::default_completion_token_t<executor_type>>
+    auto
+    async_read_some(
+        const MutableBufferSequence& buffers,
+        CompletionToken&& token =
+            asio::default_completion_token_t<executor_type>{})
+    {
+        return boost::asio::async_compose<
+            CompletionToken,
+            void(boost::system::error_code, size_t)>(
+            [this, buffers, init = false](
+                auto&& self,
+                boost::system::error_code ec = {},
+                size_t n                     = 0) mutable
+            {
+                if(std::exchange(init, true))
+                    return self.complete(ec, n);
+
+                std::visit(
+                    [&](auto& s)
+                    { s.async_read_some(buffers, std::move(self)); },
+                    stream_);
+            },
+            token,
+            get_executor());
+    }
+
+    template<
+        typename CompletionToken =
+            asio::default_completion_token_t<executor_type>>
+    auto
+    async_shutdown(
+        CompletionToken&& token =
+            asio::default_completion_token_t<executor_type>{})
+    {
+        return boost::asio::
+            async_compose<CompletionToken, void(boost::system::error_code)>(
+                [this, init = false](
+                    auto&& self, boost::system::error_code ec = {}) mutable
+                {
+                    if(std::exchange(init, true))
+                        return self.complete(ec);
+
+                    std::visit(
+                        [&](auto& s)
+                        {
+                            if constexpr(std::is_same_v<
+                                             decltype(s),
+                                             ssl_stream_type&>)
+                            {
+                                s.async_shutdown(std::move(self));
+                            }
+                            else
+                            {
+                                s.close(ec);
+                                asio::async_immediate(
+                                    s.get_executor(),
+                                    asio::append(std::move(self), ec));
+                            }
+                        },
+                        stream_);
+                },
+                token,
+                get_executor());
+    }
+
+private:
+    std::variant<plain_stream_type, ssl_stream_type> stream_;
+};
+
+asio::awaitable<any_stream>
+connect(
+    ssl::context& ssl_ctx,
+    core::string_view host,
+    core::string_view service,
+    core::string_view target)
+{
+    auto exec     = co_await asio::this_coro::executor;
+    auto resolver = asio::ip::tcp::resolver{ exec };
+    auto rresults = co_await resolver.async_resolve(host, service);
+
+    if(service == "https")
+    {
+        auto stream = ssl::stream<asio::ip::tcp::socket>{ exec, ssl_ctx };
+
+        co_await asio::async_connect(stream.lowest_layer(), rresults);
+
+        if(auto host_s = std::string{ host };
+           !SSL_set_tlsext_host_name(stream.native_handle(), host_s.c_str()))
+        {
+            throw boost::system::system_error(
+                static_cast<int>(::ERR_get_error()),
+                asio::error::get_ssl_category());
+        }
+
+        co_await stream.async_handshake(ssl::stream_base::client);
+
+        co_return stream;
+    }
+    
+    auto stream = asio::ip::tcp::socket{ exec };
+    co_await asio::async_connect(stream, rresults);
+    co_return stream;
+}
 
 // Performs an HTTP GET and prints the response
 asio::awaitable<void>
@@ -35,24 +197,7 @@ request(
     core::string_view target)
 {
     auto exec   = co_await asio::this_coro::executor;
-    auto stream = ssl::stream<asio::ip::tcp::socket>{ exec, ssl_ctx };
-
-    {
-        auto resolver = asio::ip::tcp::resolver{ exec };
-        auto results  = co_await resolver.async_resolve(host, service);
-
-        co_await asio::async_connect(stream.lowest_layer(), results);
-    }
-
-    if(auto host_s = std::string{ host };
-       !SSL_set_tlsext_host_name(stream.native_handle(), host_s.c_str()))
-    {
-        throw boost::system::system_error(
-            static_cast<int>(::ERR_get_error()),
-            asio::error::get_ssl_category());
-    }
-
-    co_await stream.async_handshake(ssl::stream_base::client);
+    auto stream = co_await connect(ssl_ctx, host, service, target);
 
     {
         auto request = http_proto::request{};
@@ -117,7 +262,9 @@ main(int argc, char* argv[])
         ssl_ctx.set_verify_mode(ssl::verify_none);
 
         {
-            http_proto::request_parser::config cfg;
+            http_proto::response_parser::config cfg;
+            cfg.body_limit = 8 * 1024 * 1024;
+            cfg.min_buffer = 8 * 1024 * 1024;
             http_proto::install_parser_service(http_proto_ctx, cfg);
         }
 
