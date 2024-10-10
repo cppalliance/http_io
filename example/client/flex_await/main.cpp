@@ -156,8 +156,7 @@ asio::awaitable<any_stream>
 connect(
     ssl::context& ssl_ctx,
     core::string_view host,
-    core::string_view service,
-    core::string_view target)
+    core::string_view service)
 {
     auto exec     = co_await asio::this_coro::executor;
     auto resolver = asio::ip::tcp::resolver{ exec };
@@ -166,7 +165,6 @@ connect(
     if(service == "https")
     {
         auto stream = ssl::stream<asio::ip::tcp::socket>{ exec, ssl_ctx };
-
         co_await asio::async_connect(stream.lowest_layer(), rresults);
 
         if(auto host_s = std::string{ host };
@@ -178,13 +176,49 @@ connect(
         }
 
         co_await stream.async_handshake(ssl::stream_base::client);
-
         co_return stream;
     }
-    
+
     auto stream = asio::ip::tcp::socket{ exec };
     co_await asio::async_connect(stream, rresults);
     co_return stream;
+}
+
+bool
+is_redirect(http_proto::response_view resp) noexcept
+{
+    switch(resp.status())
+    {
+        case http_proto::status::moved_permanently:
+        case http_proto::status::found:
+        case http_proto::status::temporary_redirect:
+        case http_proto::status::permanent_redirect:
+            return true;
+        default:
+            return false;
+    }
+}
+
+asio::awaitable<void>
+write_get_request(
+    http_proto::context& http_proto_ctx,
+    any_stream& stream,
+    core::string_view host,
+    core::string_view target)
+{
+    auto exec    = co_await asio::this_coro::executor;
+    auto request = http_proto::request{};
+
+    request.set_method(http_proto::method::get);
+    request.set_target(target);
+    request.set_version(http_proto::version::http_1_1);
+    request.set_keep_alive(false);
+    request.set(http_proto::field::host, host);
+    request.set(http_proto::field::user_agent, "Boost.Http.Io");
+
+    auto serializer = http_proto::serializer{ http_proto_ctx };
+    serializer.start(request);
+    co_await http_io::async_write(stream, serializer);
 }
 
 // Performs an HTTP GET and prints the response
@@ -197,47 +231,59 @@ request(
     core::string_view target)
 {
     auto exec   = co_await asio::this_coro::executor;
-    auto stream = co_await connect(ssl_ctx, host, service, target);
+    auto stream = co_await connect(ssl_ctx, host, service);
 
+    co_await write_get_request(http_proto_ctx, stream, host, target);
+
+    auto parser = http_proto::response_parser{ http_proto_ctx };
+    parser.reset();
+    parser.start();
+
+    co_await http_io::async_read_header(stream, parser);
+
+    while(is_redirect(parser.get()))
     {
-        auto request = http_proto::request{};
-        request.set_method(http_proto::method::get);
-        request.set_target(target);
-        request.set_version(http_proto::version::http_1_1);
-        request.set_keep_alive(false);
-        request.set(http_proto::field::host, host);
-        request.set(http_proto::field::user_agent, "Boost.Http.Io");
+        auto resp = parser.get();
+        if(auto it = resp.find(http_proto::field::location); it != resp.end())
+        {
+            auto url     = urls::parse_uri(it->value);
+            auto host    = url->host();
+            auto service = url->has_port() ? url->port() : url->scheme();
+            auto target  =
+                !url->encoded_target().empty() ? url->encoded_target() : "/";
 
-        auto serializer = http_proto::serializer{ http_proto_ctx };
-        serializer.start(request);
+            // TODO: reuse the connection when possible
+            auto [_] = co_await stream.async_shutdown(asio::as_tuple);
+            stream   = co_await connect(ssl_ctx, host, service);
+            co_await write_get_request(http_proto_ctx, stream, host, target);
 
-        co_await http_io::async_write(stream, serializer);
+            parser.reset();
+            parser.start();
+
+            co_await http_io::async_read_header(stream, parser);
+        }
+        else
+        {
+            throw std::runtime_error{ "Bad redirect response"};
+        }
     }
 
+    for(;;)
     {
-        auto parser = http_proto::response_parser{ http_proto_ctx };
-        parser.reset();
-        parser.start();
-
-        co_await http_io::async_read_header(stream, parser);
-
-        for(;;)
+        for(auto cb : parser.pull_body())
         {
-            for(auto cb : parser.pull_body())
-            {
-                std::cout.write(static_cast<const char*>(
-                    cb.data()), cb.size());
-                parser.consume_body(cb.size());
-            }
-
-            if(parser.is_complete())
-                break;
-
-            auto [ec, _] = co_await http_io::async_read_some(
-                stream, parser, asio::as_tuple);
-            if(ec && ec != http_proto::condition::need_more_input)
-                throw boost::system::system_error{ ec };
+            std::cout.write(static_cast<const char*>(
+                cb.data()), cb.size());
+            parser.consume_body(cb.size());
         }
+
+        if(parser.is_complete())
+            break;
+
+        auto [ec, _] = co_await http_io::async_read_some(
+            stream, parser, asio::as_tuple);
+        if(ec && ec != http_proto::condition::need_more_input)
+            throw boost::system::system_error{ ec };
     }
 
     auto [ec] = co_await stream.async_shutdown(asio::as_tuple);
