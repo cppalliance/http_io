@@ -94,6 +94,11 @@ public:
                 pr_.parse(ec);
                 if(ec != http_proto::condition::need_more_input)
                     break;
+                if(pr_.got_header())
+                {
+                    ec = {}; // override possible need_more_input
+                    break;
+                }
             }
 
         upcall:
