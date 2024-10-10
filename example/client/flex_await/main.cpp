@@ -220,14 +220,29 @@ request(
         parser.start();
 
         co_await http_io::async_read_header(stream, parser);
-        co_await http_io::async_read(stream, parser);
 
-        std::cout << parser.body() << std::endl;
+        for(;;)
+        {
+            for(auto cb : parser.pull_body())
+            {
+                std::cout.write(static_cast<const char*>(
+                    cb.data()), cb.size());
+                parser.consume_body(cb.size());
+            }
+
+            if(parser.is_complete())
+                break;
+
+            auto [ec, _] = co_await http_io::async_read_some(
+                stream, parser, asio::as_tuple);
+            if(ec && ec != http_proto::condition::need_more_input)
+                throw boost::system::system_error{ ec };
+        }
     }
 
     auto [ec] = co_await stream.async_shutdown(asio::as_tuple);
     if(ec && ec != ssl::error::stream_truncated)
-        throw boost::system::system_error(ec);
+        throw boost::system::system_error{ ec };
 };
 
 int
@@ -263,8 +278,8 @@ main(int argc, char* argv[])
 
         {
             http_proto::response_parser::config cfg;
-            cfg.body_limit = 8 * 1024 * 1024;
-            cfg.min_buffer = 8 * 1024 * 1024;
+            cfg.body_limit = std::numeric_limits<std::size_t>::max();
+            cfg.min_buffer = 1024 * 1024;
             http_proto::install_parser_service(http_proto_ctx, cfg);
         }
 
