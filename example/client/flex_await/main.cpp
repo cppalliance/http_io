@@ -216,6 +216,10 @@ write_get_request(
     request.set(http_proto::field::host, host);
     request.set(http_proto::field::user_agent, "Boost.Http.Io");
 
+    #ifdef BOOST_HTTP_PROTO_HAS_ZLIB
+    request.set(http_proto::field::accept_encoding, "gzip, deflate");
+    #endif
+
     auto serializer = http_proto::serializer{ http_proto_ctx };
     serializer.start(request);
     co_await http_io::async_write(stream, serializer);
@@ -326,6 +330,11 @@ main(int argc, char* argv[])
             http_proto::response_parser::config cfg;
             cfg.body_limit = std::numeric_limits<std::size_t>::max();
             cfg.min_buffer = 1024 * 1024;
+            #ifdef BOOST_HTTP_PROTO_HAS_ZLIB
+            cfg.apply_gzip_decoder = true;
+            cfg.apply_deflate_decoder = true;
+            http_proto::zlib::install_service(http_proto_ctx);
+            #endif
             http_proto::install_parser_service(http_proto_ctx, cfg);
         }
 
