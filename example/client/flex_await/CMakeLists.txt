@@ -25,5 +25,6 @@ find_package(OpenSSL REQUIRED)
 
 target_link_libraries(http_io_example_client_flex_await
     Boost::http_io
+    Boost::http_proto_zlib
     OpenSSL::SSL
     OpenSSL::Crypto)
