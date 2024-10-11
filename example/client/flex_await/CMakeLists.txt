@@ -22,9 +22,15 @@ set_property(TARGET http_io_example_client_flex_await
     PROPERTY FOLDER "examples")
 
 find_package(OpenSSL REQUIRED)
+find_package(ZLIB)
 
 target_link_libraries(http_io_example_client_flex_await
     Boost::http_io
-    Boost::http_proto_zlib
+    Boost::http_proto
     OpenSSL::SSL
     OpenSSL::Crypto)
+
+if (ZLIB_FOUND)
+    target_link_libraries(http_io_example_client_flex_await
+        Boost::http_proto_zlib)
+endif()
