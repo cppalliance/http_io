@@ -15,9 +15,10 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <variant>
 
 #if defined(BOOST_ASIO_HAS_CO_AWAIT)
+
+#include <variant>
 
 namespace asio       = boost::asio;
 namespace core       = boost::core;
@@ -257,7 +258,7 @@ request(
                 !url->encoded_target().empty() ? url->encoded_target() : "/";
 
             // TODO: reuse the connection when possible
-            auto [_] = co_await stream.async_shutdown(asio::as_tuple);
+            co_await stream.async_shutdown(asio::as_tuple);
             stream   = co_await connect(ssl_ctx, host, service);
             co_await write_get_request(http_proto_ctx, stream, host, target);
 
