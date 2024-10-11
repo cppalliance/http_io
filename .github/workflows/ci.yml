@@ -155,11 +155,11 @@ jobs:
             version: "*"
             cxx: "clang++"
             cc: "clang"
-            runs-on: "macos-11"
+            runs-on: "macos-14"
             b2-toolset: "clang"
             is-latest: true
             is-earliest: true
-            name: "Apple-Clang"
+            name: "Apple-Clang (macOS 14)"
             build-type: "Release"
             build-cmake: true
 
@@ -167,10 +167,10 @@ jobs:
             version: "*"
             cxx: "clang++"
             cc: "clang"
-            runs-on: "macos-11"
+            runs-on: "macos-14"
             b2-toolset: "clang"
             is-latest: true
-            name: "Apple-Clang (ubsan)"
+            name: "Apple-Clang (macOS 14, ubsan)"
             build-type: "RelWithDebInfo"
             ubsan: true
 
@@ -178,10 +178,10 @@ jobs:
             version: "*"
             cxx: "clang++"
             cc: "clang"
-            runs-on: "macos-11"
+            runs-on: "macos-14"
             b2-toolset: "clang"
             is-latest: true
-            name: "Apple-Clang (asan)"
+            name: "Apple-Clang (macOS 14, asan)"
             build-type: "RelWithDebInfo"
             asan: true
 
@@ -714,6 +714,10 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: Enable Node 16
+        run: |
+          echo "ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true" >> $GITHUB_ENV
+
       - name: ASLR Fix
         if: ${{ startsWith(matrix.runs-on, 'ubuntu' )}}
         run: sysctl vm.mmap_rnd_bits=28
