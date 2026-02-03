@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<explicit-failures-markup>
+    <!-- beast2 -->
+    <library name="beast2">
+        <mark-unusable>
+            <note author="Vinnie Falco">C++20 is the minimum requirement.</note>
+        </mark-unusable>
+    </library>
+</explicit-failures-markup>

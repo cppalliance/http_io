@@ -1,0 +1,36 @@
+# Input
+source-root: ..
+# Directories that contain documented source files
+input:
+  - ../include
+# Patterns to filter out the source-files in the directories
+file-patterns:
+  - '*.hpp'
+
+# Filters
+include-symbols:
+  - 'boost::beast2::**'
+implementation-defined:
+  - 'boost::beast2::*::detail'
+  - 'boost::beast2::detail'
+  - 'boost::beast2::implementation_defined'
+  - 'boost::beast2::make_error_code'
+  - 'boost::beast2::make_error_condition'
+inaccessible-members: never
+inaccessible-bases: never
+
+# Generator
+generate: adoc
+base-url: https://www.github.com/cppalliance/beast2/blob/develop/
+
+# Style
+verbose: true
+multipage: true
+use-system-libc: true
+use-system-stdlib: true
+
+# Warnings
+warn-unnamed-param: true
+warn-if-undoc-enum-val: false
+
+cmake: '-DCMAKE_CXX_STANDARD=20 -DBOOST_BEAST2_MRDOCS_BUILD=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=OFF'

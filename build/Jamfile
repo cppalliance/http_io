@@ -1,0 +1,50 @@
+#
+# Copyright (c) 2023 Vinnie Falco (vinnie dot falco at gmail dot com)
+#
+# Distributed under the Boost Software License, Version 1.0. (See accompanying
+# file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#
+# Official repository: https://github.com/cppalliance/beast2
+#
+
+import config : requires ;
+
+constant c11-requires :
+    [ requires
+    cxx20_hdr_coroutine
+    ]
+    ;
+
+path-constant BEAST2_ROOT : .. ;
+
+explicit
+    [ searched-lib ws2_32 : : <target-os>windows ] # NT
+    [ searched-lib mswsock : : <target-os>windows ] # NT
+    ;
+
+project boost/beast2
+    : common-requirements
+      $(c11-requires)
+      <link>shared:<define>BOOST_BEAST2_DYN_LINK=1
+      <link>static:<define>BOOST_BEAST2_STATIC_LINK=1
+      <toolset>clang-win:<cxxflags>"-Wno-unused-private-field"
+    : source-location $(BEAST2_ROOT)
+    ;
+
+alias beast2_sources : [ glob-tree-ex ./src : *.cpp ] ;
+
+explicit beast2_sources ;
+
+lib boost_beast2
+   : beast2_sources
+   : requirements
+     <library>/boost//corosio
+     <library>/boost//http
+     <include>../
+     <define>BOOST_BEAST2_SOURCE
+   : usage-requirements
+     <library>/boost//corosio
+     <library>/boost//http
+   ;
+
+boost-install boost_beast2 ;
