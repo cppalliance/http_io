@@ -26,6 +26,10 @@ on:
       - '.github/workflows/code-coverage.yml'
   workflow_dispatch:
 
+concurrency:
+  group: code-coverage-pages
+  cancel-in-progress: false
+
 env:
   GIT_FETCH_JOBS: 8
   NET_RETRY_COUNT: 5
@@ -111,8 +115,8 @@ jobs:
             mkdir -p gh_pages_dir/develop
             mkdir -p gh_pages_dir/master
             rm -rf "gh_pages_dir/${GITHUB_REF_NAME}/gcovr"
-            cp -rp gcovr gh_pages_dir/${GITHUB_REF_NAME}/
-            echo -e "<html>\n<head>\n</head>\n<body>\n<a href=develop/index.html>develop</a><br>\n<a href=master/index.html>master</a><br>\n</body>\n</html>\n" > gh_pages_dir/index.html
+            cp -rp gcovr "gh_pages_dir/${GITHUB_REF_NAME}/"
+            echo -e "<html>\n<head>\n</head>\n<body>\n<a href=\"develop/index.html\">develop</a><br>\n<a href=\"master/index.html\">master</a><br>\n</body>\n</html>\n" > gh_pages_dir/index.html
             # In the future: echo -e "<html>\n<head>\n</head>\n<body>\n<a href=gcovr/index.html>gcovr</a><br>\n</body>\n</html>\n" > gh_pages_dir/develop/index.html
             echo -e "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; url=./gcovr/index.html\">\n</head>\n<body>\n</body>\n</html>\n" > gh_pages_dir/develop/index.html
             cp gh_pages_dir/develop/index.html gh_pages_dir/master/index.html
