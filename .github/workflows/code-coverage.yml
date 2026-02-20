@@ -37,6 +37,7 @@ env:
   GCOVR_COMMIT_MSG: "Update coverage data"
   # Should branch coverage be reported? Default to no.
   BOOST_BRANCH_COVERAGE: 0
+  EXTRA_BOOST_LIBRARIES: "cppalliance/buffers cppalliance/capy cppalliance/corosio cppalliance/http"
 
 jobs:
   build:
