@@ -10,7 +10,7 @@ content:
   sources:
     - url: ..
       start_path: doc
-      edit_url: 'https://github.com/cppalliance/beast2/edit/{refname}/{path}'
+      edit_url: 'https://github.com/cppalliance/beast2/edit/develop/{path}'
 
 ui:
   bundle:
