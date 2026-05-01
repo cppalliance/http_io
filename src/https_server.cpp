@@ -9,7 +9,6 @@
 
 #include <boost/beast2/https_server.hpp>
 #include <boost/beast2/http_worker.hpp>
-#include <boost/http/server/flat_router.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/ex/strand.hpp>
@@ -22,7 +21,6 @@
 #include <boost/http/server/router.hpp>
 #include <boost/http/serializer.hpp>
 #include <boost/http/string_body.hpp>
-#include <boost/http/server/basic_router.hpp>
 #include <boost/http/error.hpp>
 #include <boost/url/parse.hpp>
 #include <iostream>
@@ -34,13 +32,13 @@ namespace beast2 {
 struct https_server::impl
 {
     corosio::tls_context tls_ctx;
-    http::flat_router router;
+    http::router<http::route_params> router;
     http::shared_parser_config parser_cfg;
     http::shared_serializer_config serializer_cfg;
 
     impl(
         corosio::tls_context tc,
-        http::flat_router r)
+        http::router<http::route_params> r)
         : tls_ctx(std::move(tc))
         , router(std::move(r))
     {
@@ -132,7 +130,7 @@ https_server(
     corosio::io_context& ctx,
     std::size_t num_workers,
     corosio::tls_context tls_ctx,
-    http::flat_router router,
+    http::router<http::route_params> router,
     http::shared_parser_config parser_cfg,
     http::shared_serializer_config serializer_cfg)
     : tcp_server(ctx, ctx.get_executor())

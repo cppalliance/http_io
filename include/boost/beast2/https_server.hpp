@@ -15,10 +15,10 @@
 #include <boost/corosio/io_context.hpp>
 #include <boost/corosio/tls_context.hpp>
 #include <boost/http/config.hpp>
+#include <boost/http/server/router.hpp>
 #include <cstddef>
 
 namespace boost {
-namespace http { class flat_router; }
 namespace beast2 {
 
 /** An HTTPS server for handling requests with coroutine-based I/O.
@@ -42,7 +42,7 @@ namespace beast2 {
     tls_ctx.use_certificate_chain_file("server.crt", corosio::tls_file_format::pem);
     tls_ctx.use_private_key_file("server.key", corosio::tls_file_format::pem);
 
-    http::flat_router router;
+    http::router<http::route_params> router;
     router.add( http::verb::get, "/", my_handler );
 
     https_server srv(
@@ -86,7 +86,7 @@ public:
         corosio::io_context& ctx,
         std::size_t num_workers,
         corosio::tls_context tls_ctx,
-        http::flat_router router,
+        http::router<http::route_params> router,
         http::shared_parser_config parser_cfg,
         http::shared_serializer_config serializer_cfg);
 };

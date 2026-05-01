@@ -17,7 +17,7 @@ namespace beast2 {
 
 http_worker::
 http_worker(
-    http::flat_router fr_,
+    http::router<http::route_params> fr_,
     http::shared_parser_config parser_cfg,
     http::shared_serializer_config serializer_cfg)
     : fr(std::move(fr_))
