@@ -16,7 +16,6 @@
 #include <boost/http/config.hpp>
 #include <boost/http/request_parser.hpp>
 #include <boost/http/serializer.hpp>
-#include <boost/http/server/flat_router.hpp>
 #include <boost/http/server/router.hpp>
 
 namespace boost {
@@ -51,7 +50,7 @@ namespace beast2 {
 
         my_worker(
             corosio::io_context& ctx,
-            http::flat_router const& router,
+            http::router<http::route_params> const& router,
             http::shared_parser_config parser_cfg,
             http::shared_serializer_config serializer_cfg)
             : http_worker(router, parser_cfg, serializer_cfg)
@@ -81,7 +80,7 @@ namespace beast2 {
 class BOOST_BEAST2_DECL http_worker
 {
 public:
-    http::flat_router fr;
+    http::router<http::route_params> fr;
     http::route_params rp;
     capy::any_read_stream stream;
     http::request_parser parser;
@@ -95,7 +94,7 @@ public:
             serializer.
     */
     http_worker(
-        http::flat_router fr_,
+        http::router<http::route_params> fr_,
         http::shared_parser_config parser_cfg,
         http::shared_serializer_config serializer_cfg);
 
