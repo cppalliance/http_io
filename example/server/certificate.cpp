@@ -9,6 +9,7 @@
 
 #include "certificate.hpp"
 #include <string>
+#include <tuple>
 #include <utility>
 
 namespace boost {
@@ -124,12 +125,12 @@ load_server_certificate(
 
     for(auto const& t : certs)
     {
-        ctx.use_certificate_chain(t.first);
+        std::ignore = ctx.use_certificate_chain(t.first);
 
         // use_private_key applies to the last inserted certificate,
         // see: https://linux.die.net/man/3/ssl_ctx_use_privatekey
         //
-        ctx.use_private_key(t.second,
+        std::ignore = ctx.use_private_key(t.second,
             corosio::tls_file_format::pem);
     }
 

@@ -25,6 +25,7 @@
 #include <boost/url/parse.hpp>
 #include <iostream>
 #include <memory>
+#include <tuple>
 
 namespace boost {
 namespace beast2 {
@@ -68,7 +69,7 @@ struct https_server::
         , sock(ctx_)
         , tls_ctx(srv_->impl_->tls_ctx)
     {
-        sock.open();
+        std::ignore = sock.open();
     }
 
     corosio::tcp_socket& socket() override
@@ -92,7 +93,7 @@ struct https_server::
         if(hs_ec)
         {
             std::cerr << "TLS handshake error: " << hs_ec.message() << "\n";
-            sock.shutdown(corosio::tcp_socket::shutdown_both);
+            std::ignore = sock.shutdown(corosio::tcp_socket::shutdown_both);
             ssl.reset();
             co_return;
         }
@@ -115,7 +116,7 @@ struct https_server::
         // Clean up TLS stream before TCP shutdown
         ssl.reset();
 
-        sock.shutdown(corosio::tcp_socket::shutdown_both);
+        std::ignore = sock.shutdown(corosio::tcp_socket::shutdown_both);
     }
 };
 

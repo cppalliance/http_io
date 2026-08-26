@@ -33,6 +33,7 @@
 #include <csignal>
 #include <iostream>
 #include <string>
+#include <tuple>
 
 namespace boost {
 namespace beast2 {
@@ -216,7 +217,7 @@ int server_main( int argc, char* argv[] )
 #endif
 
     corosio::signal_set sigs(ioc);
-    sigs.add(SIGINT);
+    std::ignore = sigs.add(SIGINT);
     capy::run_async(ioc.get_executor())(
         [&]() -> capy::task<void>
         {

@@ -65,7 +65,6 @@ set(BOOST_BEAST2_DEPENDENCIES
     Boost::http
     Boost::json
     Boost::mp11
-    Boost::static_assert
     Boost::system
     Boost::throw_exception
     Boost::url
@@ -153,6 +152,7 @@ function(boost_beast2_setup_properties target)
         PUBLIC "${PROJECT_SOURCE_DIR}/include"
         PRIVATE "${PROJECT_SOURCE_DIR}")
     target_link_libraries(${target} PUBLIC ${BOOST_BEAST2_DEPENDENCIES})
+    target_link_libraries(${target} PUBLIC Boost::corosio_openssl)
     find_package(Threads REQUIRED)
     target_link_libraries(${target} PUBLIC Threads::Threads)
     if (MINGW)

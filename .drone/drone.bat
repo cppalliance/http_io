@@ -47,6 +47,9 @@ pushd !BOOST_ROOT!\libs
 git clone https://github.com/cppalliance/capy -b !BOOST_BRANCH! --depth 1
 popd
 pushd !BOOST_ROOT!\libs
+git clone https://github.com/cppalliance/corosio -b !BOOST_BRANCH! --depth 1
+popd
+pushd !BOOST_ROOT!\libs
 git clone https://github.com/cppalliance/http -b !BOOST_BRANCH! --depth 1
 popd
 

@@ -5,12 +5,14 @@
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
+# Official repository: https://github.com/cppalliance/beast2/
+#
 
 # Instructions
 #
-# After running this workflow successfully, go to https://github.com/ORGANIZATION/REPO/settings/pages
+# After running this workflow successfully, go to https://github.com/cppalliance/beast2/settings/pages
 # and enable github pages on the code-coverage branch.
-# The pages will be hosted at https://ORGANIZATION.github.io/REPO
+# The coverage will be hosted at https://cppalliance.org/beast2
 #
 
 name: Code Coverage
@@ -23,6 +25,7 @@ on:
     paths:
       - 'src/**'
       - 'include/**'
+      - 'test/**'
       - '.github/workflows/code-coverage.yml'
   workflow_dispatch:
 
@@ -33,30 +36,194 @@ concurrency:
 env:
   GIT_FETCH_JOBS: 8
   NET_RETRY_COUNT: 5
-  # Commit title of the automatically created commits
   GCOVR_COMMIT_MSG: "Update coverage data"
-  # Should branch coverage be reported? Default to no.
-  BOOST_BRANCH_COVERAGE: 0
-  EXTRA_BOOST_LIBRARIES: "cppalliance/buffers cppalliance/capy cppalliance/corosio cppalliance/http"
 
 jobs:
-  build:
+  build-linux:
     defaults:
       run:
         shell: bash
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: "ubuntu-24.04"
-            name: Coverage
-            cxxstd: "20"
-            gcovr_script: './ci-automation/scripts/lcov-jenkins-gcc-13.sh --only-gcovr'
-
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.runs-on }}
+    name: Coverage (Linux)
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
+
+    steps:
+      - name: Clone Boost.Beast2
+        uses: actions/checkout@v6
+        with:
+          path: beast2-root
+
+      - name: Setup C++
+        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.4
+        id: setup-cpp
+        with:
+          compiler: gcc
+          version: 13
+          check-latest: true
+
+      - name: Install packages
+        uses: alandefreitas/cpp-actions/package-install@v1.9.4
+        with:
+          apt-get: >-
+            build-essential libssl-dev zlib1g-dev libbrotli-dev
+            lcov
+
+      - name: Clone Boost
+        uses: alandefreitas/cpp-actions/boost-clone@v1.9.4
+        id: boost-clone
+        with:
+          branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
+          boost-dir: boost-source
+          scan-modules-dir: beast2-root
+          patches: >
+            https://github.com/cppalliance/capy
+            https://github.com/cppalliance/corosio
+            https://github.com/cppalliance/http
+
+      - name: ASLR Fix
+        run: sysctl vm.mmap_rnd_bits=28
+
+      - name: Patch Boost
+        id: patch
+        run: |
+          set -xe
+
+          # Identify boost module being tested
+          module=${GITHUB_REPOSITORY#*/}
+          echo "module=$module" >> $GITHUB_OUTPUT
+
+          # Identify GitHub workspace root
+          workspace_root=$(echo "$GITHUB_WORKSPACE" | sed 's/\\/\//g')
+          echo -E "workspace_root=$workspace_root" >> $GITHUB_OUTPUT
+
+          # Remove module from boost-source
+          rm -r "boost-source/libs/$module" || true
+
+          # Copy cached boost-source to an isolated boost-root
+          cp -r boost-source boost-root
+
+          # Set boost-root output
+          cd boost-root
+          boost_root="$(pwd)"
+          boost_root=$(echo "$boost_root" | sed 's/\\/\//g')
+          echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
+          cd ..
+
+          # Patch boost-root with workspace module
+          cp -r "$workspace_root"/beast2-root "boost-root/libs/$module"
+
+      - name: Build with coverage
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.4
+        with:
+          source-dir: boost-root
+          build-dir: __build_cmake_test__
+          build-type: Debug
+          build-target: tests
+          run-tests: true
+          install-prefix: .local
+          cxxstd: '20'
+          cc: ${{ steps.setup-cpp.outputs.cc || 'gcc-13' }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx || 'g++-13' }}
+          cxxflags: '--coverage -fprofile-arcs -ftest-coverage'
+          ccflags: '--coverage -fprofile-arcs -ftest-coverage'
+          shared: false
+          cmake-version: '>=3.20'
+          extra-args: |
+            -D Boost_VERBOSE=ON
+            -D BOOST_INCLUDE_LIBRARIES="${{ steps.patch.outputs.module }}"
+            -D CMAKE_EXPORT_COMPILE_COMMANDS=ON
+          package: false
+          package-artifact: false
+          ref-source-dir: boost-root/libs/beast2
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install Python packages
+        run: pip install gcovr
+
+      - name: Checkout ci-automation
+        uses: actions/checkout@v6
+        with:
+          repository: cppalliance/ci-automation
+          path: ci-automation
+
+      - name: Generate gcovr report
+        run: |
+          set -xe
+          module=$(basename ${GITHUB_REPOSITORY})
+          gcov_tool="gcov-${{ steps.setup-cpp.outputs.version-major }}"
+          command -v "$gcov_tool" >/dev/null 2>&1 || gcov_tool="gcov"
+          mkdir -p gcovr
+
+          # First pass: collect raw coverage data into JSON
+          gcovr \
+            --root boost-root \
+            --gcov-executable "$gcov_tool" \
+            --merge-mode-functions separate \
+            --sort uncovered-percent \
+            --html-title "${module}" \
+            --merge-lines \
+            --exclude-unreachable-branches \
+            --exclude-throw-branches \
+            --exclude '.*/example/.*' \
+            --exclude '.*/examples/.*' \
+            --filter ".*/${module}/.*" \
+            --html --output gcovr/index.html \
+            --json-summary-pretty --json-summary gcovr/summary.json \
+            --json gcovr/coverage-raw.json \
+            boost-root/__build_cmake_test__
+
+          # Fix paths for repo-relative display
+          python3 ci-automation/scripts/fix_paths.py \
+            gcovr/coverage-raw.json \
+            gcovr/coverage-fixed.json \
+            --repo "${module}"
+
+          # Create symlinks so gcovr can find source files at repo-relative paths
+          ln -sfn "boost-root/libs/${module}/include" include 2>/dev/null || true
+          ln -sfn "boost-root/libs/${module}/src" src 2>/dev/null || true
+
+          # Second pass: generate nested HTML from fixed JSON with custom templates
+          gcovr \
+            -a gcovr/coverage-fixed.json \
+            --merge-mode-functions separate \
+            --sort uncovered-percent \
+            --html-nested \
+            --html-template-dir=ci-automation/gcovr-templates/html \
+            --html-title "${module}" \
+            --merge-lines \
+            --exclude-unreachable-branches \
+            --exclude-throw-branches \
+            --exclude '(^|.*/)test/.*' \
+            --exclude '.*/example/.*' \
+            --exclude '.*/examples/.*' \
+            --html --output gcovr/index.html \
+            --json-summary-pretty --json-summary gcovr/summary.json
+
+      - name: Generate sidebar navigation
+        run: python3 ci-automation/scripts/gcovr_build_tree.py gcovr
+
+      - name: Generate badges
+        run: python3 ci-automation/scripts/generate_badges.py gcovr --json gcovr/summary.json
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: gcovr/
+
+  deploy:
+    needs: [build-linux]
+    if: ${{ !cancelled() }}
+    defaults:
+      run:
+        shell: bash
+    name: Deploy Coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -78,50 +245,67 @@ jobs:
                 git checkout $GITHUB_REF_NAME
             fi
 
-      - name: Install Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - name: Install Python packages
-        run: pip install gcovr
-
-      - name: Checkout ci-automation
-        uses: actions/checkout@v6
-        with:
-          repository: cppalliance/ci-automation
-          path: ci-automation
-
-      - name: Build and run tests & collect coverage data
-        run: |
-            set -xe
-            ls -al
-            export ORGANIZATION=${GITHUB_REPOSITORY_OWNER}
-            export REPONAME=$(basename ${GITHUB_REPOSITORY})
-            export B2_CXXSTD=${{matrix.cxxstd}}
-            ${{matrix.gcovr_script}}
-
       - name: Checkout GitHub pages branch
         uses: actions/checkout@v6
         with:
           ref: code-coverage
           path: gh_pages_dir
 
-      - name: Copy gcovr results
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-artifacts/
+
+      - name: Copy coverage results
         run: |
             set -xe
-            pwd
-            ls -al
-            touch gh_pages_dir/.nojekyll # Prevent GH pages from treating these files as Jekyll pages.
-            mkdir -p gh_pages_dir/develop
-            mkdir -p gh_pages_dir/master
+            touch gh_pages_dir/.nojekyll
+
+            mkdir -p "gh_pages_dir/develop"
+            mkdir -p "gh_pages_dir/master"
+
+            # Remove old single-directory layout (migration from gcovr/ to gcovr-linux/)
             rm -rf "gh_pages_dir/${GITHUB_REF_NAME}/gcovr"
-            cp -rp gcovr "gh_pages_dir/${GITHUB_REF_NAME}/"
-            echo -e "<html>\n<head>\n</head>\n<body>\n<a href=\"develop/index.html\">develop</a><br>\n<a href=\"master/index.html\">master</a><br>\n</body>\n</html>\n" > gh_pages_dir/index.html
-            # In the future: echo -e "<html>\n<head>\n</head>\n<body>\n<a href=gcovr/index.html>gcovr</a><br>\n</body>\n</html>\n" > gh_pages_dir/develop/index.html
-            echo -e "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; url=./gcovr/index.html\">\n</head>\n<body>\n</body>\n</html>\n" > gh_pages_dir/develop/index.html
-            cp gh_pages_dir/develop/index.html gh_pages_dir/master/index.html
+
+            # Copy each platform's results (only if artifact exists)
+            for platform in linux; do
+              if [ -d "coverage-artifacts/coverage-${platform}" ]; then
+                rm -rf "gh_pages_dir/${GITHUB_REF_NAME}/gcovr-${platform}"
+                cp -rp "coverage-artifacts/coverage-${platform}" \
+                       "gh_pages_dir/${GITHUB_REF_NAME}/gcovr-${platform}"
+              fi
+            done
+
+            # Generate branch index pages
+            for branch in develop master; do
+              cat > "gh_pages_dir/${branch}/index.html" << 'HTMLEOF'
+            <html>
+            <head><title>Code Coverage</title></head>
+            <body>
+            <h2>Code Coverage Reports</h2>
+            <ul>
+              <li><a href="gcovr-linux/index.html">Linux (GCC)</a></li>
+            </ul>
+            </body>
+            </html>
+            HTMLEOF
+            done
+
+            # Root index
+            cat > gh_pages_dir/index.html << 'HTMLEOF'
+            <html>
+            <head></head>
+            <body>
+            <a href="develop/index.html">develop</a><br>
+            <a href="master/index.html">master</a><br>
+            </body>
+            </html>
+            HTMLEOF
+
             cd gh_pages_dir
+            git config --global user.name cppalliance-bot
+            git config --global user.email cppalliance-bot@example.com
             git add .
             git commit --amend -m "$GCOVR_COMMIT_MSG"
             git push -f origin code-coverage

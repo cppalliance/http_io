@@ -16,7 +16,5 @@
 #include <boost/beast2/http_server.hpp>
 #include <boost/beast2/log_service.hpp>
 #include <boost/beast2/logger.hpp>
-#include <boost/beast2/route_handler_corosio.hpp>
-#include <boost/beast2/test/error.hpp>
 
 #endif
