@@ -27,7 +27,7 @@ public:
     {
     }
 
-    system::error_code
+    std::error_code
     operator()(
         http::route_params&) const
     {
@@ -95,7 +95,7 @@ public:
     {
     }
 
-    system::error_code
+    std::error_code
     operator()(
         http::route_params&) const
     {

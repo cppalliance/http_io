@@ -52,7 +52,7 @@ struct route_rule_test
         auto rv = grammar::parse(s, t);
         if(! BOOST_TEST_EQ(rv.has_error(), true))
             return;
-        BOOST_TEST_EQ(rv.useor(), ec);
+        BOOST_TEST_EQ(rv.error(), ec);
     };
 
     static void lit(core::string_view s)

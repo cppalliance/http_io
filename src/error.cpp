@@ -8,8 +8,6 @@
 //
 
 #include <boost/beast2/error.hpp>
-#include <boost/assert.hpp>
-#include <cstring>
 
 namespace boost {
 namespace beast2 {
@@ -27,21 +25,11 @@ std::string
 error_cat_type::
 message(int code) const
 {
-    return message(code, nullptr, 0);
-}
-
-char const*
-error_cat_type::
-message(
-    int code,
-    char*,
-    std::size_t) const noexcept
-{
     switch(static_cast<error>(code))
     {
-    case error::success: return "http::error::success";
+    case error::success: return "beast2::error::success";
     default:
-        return "http::error::?";
+        return "beast2::error::?";
     }
 }
 

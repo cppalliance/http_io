@@ -12,10 +12,10 @@
 #include <boost/capy/task.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/ex/strand.hpp>
-#include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/io/any_read_stream.hpp>
-#include <boost/capy/io/any_buffer_sink.hpp>
 #include <boost/corosio/openssl_stream.hpp>
+#include <boost/http/io/any_buffer_sink.hpp>
+#include <boost/http/io/any_buffer_source.hpp>
 #include <boost/http/request_parser.hpp>
 #include <boost/http/response.hpp>
 #include <boost/http/server/router.hpp>
@@ -88,7 +88,7 @@ struct https_server::
         ssl = std::make_unique<corosio::openssl_stream>(&sock, tls_ctx);
 
         // Perform TLS handshake as server
-        auto [hs_ec] = co_await ssl->handshake(corosio::tls_stream::server);
+        auto [hs_ec] = co_await ssl->handshake(corosio::tls_role::server);
         if(hs_ec)
         {
             std::cerr << "TLS handshake error: " << hs_ec.message() << "\n";
@@ -98,8 +98,8 @@ struct https_server::
         }
 
         // Wire parser and serializer to the TLS stream
-        rp.req_body = capy::any_buffer_source(parser.source_for(*ssl));
-        rp.res_body = capy::any_buffer_sink(serializer.sink_for(*ssl));
+        rp.req_body = http::any_buffer_source(parser.source_for(*ssl));
+        rp.res_body = http::any_buffer_sink(serializer.sink_for(*ssl));
         stream = capy::any_read_stream(ssl.get());
 
         // Process HTTP requests over TLS
