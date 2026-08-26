@@ -29,30 +29,12 @@ namespace beast2 {
 #  define BOOST_BEAST2_DECL
 # endif
 # if !defined(BOOST_BEAST2_SOURCE) && !defined(BOOST_ALL_NO_LIB) && !defined(BOOST_BEAST2_NO_LIB)
-#  define BOOST_LIB_NAME boost_json
+#  define BOOST_LIB_NAME boost_beast2
 #  if defined(BOOST_ALL_DYN_LINK) || defined(BOOST_BEAST2_DYN_LINK)
 #   define BOOST_DYN_LINK
 #  endif
 #  include <boost/config/auto_link.hpp>
 # endif
-
-//------------------------------------------------
-
-// Add source location to error codes
-#ifdef BOOST_BEAST2_NO_SOURCE_LOCATION
-# define BOOST_BEAST2_ERR(ev) (::boost::system::error_code(ev))
-# define BOOST_BEAST2_RETURN_EC(ev) return (ev)
-#else
-# define BOOST_BEAST2_ERR(ev) ( \
-    ::boost::system::error_code( (ev), [] { \
-    static constexpr auto loc((BOOST_CURRENT_LOCATION)); \
-    return &loc; }()))
-# define BOOST_BEAST2_RETURN_EC(ev)                                  \
-    do {                                                                 \
-        static constexpr auto loc ## __LINE__((BOOST_CURRENT_LOCATION)); \
-        return ::boost::system::error_code((ev), &loc ## __LINE__);      \
-    } while(0)
-#endif
 
 } // beast2
 

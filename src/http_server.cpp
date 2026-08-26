@@ -12,9 +12,9 @@
 #include <boost/capy/task.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/ex/strand.hpp>
-#include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/io/any_read_stream.hpp>
-#include <boost/capy/io/any_buffer_sink.hpp>
+#include <boost/http/io/any_buffer_sink.hpp>
+#include <boost/http/io/any_buffer_source.hpp>
 #include <boost/http/request_parser.hpp>
 #include <boost/http/response.hpp>
 #include <boost/http/server/router.hpp>
@@ -63,8 +63,8 @@ struct http_server::
     {
         sock.open();
 
-        rp.req_body = capy::any_buffer_source(parser.source_for(sock));
-        rp.res_body = capy::any_buffer_sink(serializer.sink_for(sock));
+        rp.req_body = http::any_buffer_source(parser.source_for(sock));
+        rp.res_body = http::any_buffer_sink(serializer.sink_for(sock));
         stream = capy::any_read_stream(&sock);
     }
 

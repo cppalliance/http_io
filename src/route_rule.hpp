@@ -199,8 +199,7 @@ constexpr struct
         if(it == end || *it != '(')
             return "";
         if(it == end)
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         auto it0 = it;
         it = grammar::find_if_not(
             it, end, constraint_char{});
@@ -208,20 +207,17 @@ constexpr struct
         {
             // too small
             it = it0;
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         }
         if(it == end)
         {
             it = it0;
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         }
         if(*it != ')')
         {
             it0 = it;
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         }
         return core::string_view(++it0, it++);
     }
@@ -238,11 +234,9 @@ constexpr struct
             system::result<value_type>
     {
         if(it == end)
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         if(! grammar::alpha_chars(*it))
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         auto it0 = it++;
         it = grammar::find_if_not(
             it, end, ident_char{});
@@ -276,11 +270,9 @@ struct param_segment_rule_t
             system::result<value_type>
     {
         if(it == end)
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         if(*it != ':' && *it != '*')
-            BOOST_BEAST2_RETURN_EC(
-                grammar::error::mismatch);
+            return grammar::error::mismatch;
         value_type v;
         v.ptype = *it++;
         {

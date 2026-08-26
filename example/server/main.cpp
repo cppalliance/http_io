@@ -14,9 +14,8 @@
 #include <boost/beast2/error.hpp>
 #include <boost/beast2/http_server.hpp>
 #include <boost/beast2/https_server.hpp>
-#include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/capy/ex/thread_pool.hpp>
-#include <boost/capy/io/push_to.hpp>
+#include <boost/http/io/push_to.hpp>
 #include <boost/capy/read.hpp>
 #include <boost/corosio/signal_set.hpp>
 #include <boost/http/json/json_sink.hpp>
@@ -172,7 +171,7 @@ int server_main( int argc, char* argv[] )
             if(rp.req.method() != http::method::post)
                 co_return http::route_next;
             http::json_sink js;
-            auto [ec, n] = co_await capy::push_to(rp.req_body, js);
+            auto [ec, n] = co_await http::push_to(rp.req_body, js);
             if(ec)
                 co_return http::route_error(ec);
             json::value jv = js.release();
