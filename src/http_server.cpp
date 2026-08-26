@@ -23,6 +23,7 @@
 #include <boost/http/error.hpp>
 #include <boost/url/parse.hpp>
 #include <iostream>
+#include <tuple>
 
 namespace boost {
 namespace beast2 {
@@ -61,7 +62,7 @@ struct http_server::
         , strand(ctx_.get_executor())
         , sock(ctx_)
     {
-        sock.open();
+        std::ignore = sock.open();
 
         rp.req_body = http::any_buffer_source(parser.source_for(sock));
         rp.res_body = http::any_buffer_sink(serializer.sink_for(sock));
@@ -83,7 +84,7 @@ struct http_server::
     {
         co_await do_http_session();
 
-        sock.shutdown(corosio::tcp_socket::shutdown_both); // VFALCO too wordy
+        std::ignore = sock.shutdown(corosio::tcp_socket::shutdown_both); // VFALCO too wordy
     }
 };
 

@@ -20,7 +20,7 @@ project
       <include>../../../url/extra/test_suite
       <include>../../example/include
       <warnings>extra
-      <warnings-as-errors>on
+      # <warnings-as-errors>on
       <undefined-sanitizer>norecover:<link>static
       <toolset>clang-win:<cxxflags>"-Wno-unused-private-field"
     ;

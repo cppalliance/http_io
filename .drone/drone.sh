@@ -47,6 +47,12 @@ common_install () {
     popd
   fi
 
+  if [ ! -d "$BOOST_ROOT/libs/corosio" ]; then
+    pushd $BOOST_ROOT/libs
+    git clone https://github.com/cppalliance/corosio -b $BOOST_BRANCH --depth 1
+    popd
+  fi
+
   if [ ! -d "$BOOST_ROOT/libs/http" ]; then
     pushd $BOOST_ROOT/libs
     git clone https://github.com/cppalliance/http -b $BOOST_BRANCH --depth 1
@@ -136,6 +142,12 @@ fi
 if [ ! -d "$BOOST_ROOT/libs/capy" ]; then
   pushd $BOOST_ROOT/libs
   git clone https://github.com/cppalliance/capy -b $BOOST_BRANCH --depth 1
+  popd
+fi
+
+if [ ! -d "$BOOST_ROOT/libs/corosio" ]; then
+  pushd $BOOST_ROOT/libs
+  git clone https://github.com/cppalliance/corosio -b $BOOST_BRANCH --depth 1
   popd
 fi
 

@@ -39,11 +39,13 @@ lib boost_beast2
    : beast2_sources
    : requirements
      <library>/boost//corosio
+     <library>/boost/corosio//boost_corosio_openssl
      <library>/boost//http
      <include>../
      <define>BOOST_BEAST2_SOURCE
    : usage-requirements
      <library>/boost//corosio
+     <library>/boost/corosio//boost_corosio_openssl
      <library>/boost//http
    ;
 
